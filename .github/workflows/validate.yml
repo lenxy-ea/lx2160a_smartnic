@@ -52,3 +52,6 @@ jobs:
       - run: sudo make -C bsp/lx2160-x200 bootstrap rootfs sata
       - name: Confirm source checkout is unchanged
         run: sudo git diff --exit-code
+      - name: Restore runner ownership for checkout cleanup
+        if: always()
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
