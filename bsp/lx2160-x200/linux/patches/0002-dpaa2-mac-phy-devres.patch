@@ -1,0 +1,56 @@
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac.c
+@@ -368,7 +368,10 @@
+ static int dpaa2_mac_get_phys(struct dpaa2_mac *mac)
+ {
+ 	struct device_node *dn = to_of_node(mac->fw_node);
+-	struct device *dev = &mac->mc_dev->dev;
++	/* Match the driver that owns this MAC connection: DPNI for dpaa2-eth,
++	 * DPMAC for the standalone driver. Both set the netdev parent first.
++	 */
++	struct device *dev = mac->net_dev->dev.parent;
+ 	struct phy *phy;
+ 	size_t i;
+ 	int err;
+@@ -755,8 +758,8 @@
+ 
+ 	if (dev && dev->driver == NULL && drv) {
+ 		err = device_attach(dev);
+-		if (err && err != -EAGAIN)
+-			dev_err(dev, "Error in attaching the fsl_dpaa2_mac driver\n");
++		if (err < 0 && err != -EAGAIN && err != -EPROBE_DEFER)
++			dev_err(dev, "Error attaching fsl_dpaa2_mac: %d\n", err);
+ 	}
+ }
+ 
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac-standalone.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-mac-standalone.c
+@@ -309,10 +309,14 @@
+ 	 * take care of anything related to MAC/PHY
+ 	 */
+ 	peer_dev = fsl_mc_get_endpoint(mc_dev, 0);
+-	if (!IS_ERR_OR_NULL(peer_dev) && peer_dev->dev.type == &fsl_mc_bus_dpni_type)
+-		return -EPROBE_DEFER;
+-	if (!IS_ERR_OR_NULL(peer_dev) && peer_dev->dev.type == &fsl_mc_bus_dpsw_type)
+-		return -EPROBE_DEFER;
++	if (!IS_ERR_OR_NULL(peer_dev)) {
++		bool managed = peer_dev->dev.type == &fsl_mc_bus_dpni_type ||
++			       peer_dev->dev.type == &fsl_mc_bus_dpsw_type;
++
++		put_device(&peer_dev->dev);
++		if (managed)
++			return -EPROBE_DEFER;
++	}
+ 
+ 	net_dev = alloc_etherdev(sizeof(*priv));
+ 	if (!net_dev) {
+--- a/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
++++ b/drivers/net/ethernet/freescale/dpaa2/dpaa2-eth.c
+@@ -4827,6 +4827,7 @@
+ 
+ 	dpaa2_mac_close(mac);
+ 	dpaa2_mac_driver_attach(mac->mc_dev);
++	put_device(&mac->mc_dev->dev);
+ 	kfree(mac);
+ 
+ #if IS_ENABLED(CONFIG_MACSEC)

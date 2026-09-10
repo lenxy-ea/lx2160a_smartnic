@@ -1,0 +1,109 @@
+#!/usr/bin/python3
+"""Card-local userspace identity; never execute os-release as shell code."""
+import fcntl
+import os
+from pathlib import Path
+import re
+import shlex
+import stat
+import sys
+
+PREFIX = '[RhineLab X200] Linux: '
+
+
+def line(label, value, reason=None):
+    # Preserve readable text; escape controls, non-ASCII and literal backslashes.
+    encoded = ''.join(chr(b) if 32 <= b <= 126 and b != 92 else '\\x%02X' % b
+                      for b in value.encode('utf-8')) if value else 'unknown'
+    if not value:
+        reason = reason or 'metadata_unavailable'
+    message = PREFIX + ('WARN: ' if reason else '') + label + ': ' + encoded
+    if reason:
+        message += ' (' + reason.replace('_', ' ') + ')'
+    if len(message) > 160:
+        return line(label, 'unknown', 'value_too_long')
+    return message
+
+
+def os_identity(path):
+    try:
+        with path.open(encoding='utf-8') as stream:
+            content = stream.read(65537)
+        if len(content) > 65536:
+            return None, 'value_too_long'
+        fields = {}
+        for raw in content.splitlines():
+            if not raw.strip() or raw.lstrip().startswith('#'):
+                continue
+            match = re.fullmatch(r'([A-Z][A-Z0-9_]*)=(.*)', raw)
+            if not match:
+                return None, 'os_release_malformed'
+            key, text = match.groups()
+            if key not in ('ID', 'VERSION_ID'):
+                continue
+            values = shlex.split(text, comments=True, posix=True)
+            if len(values) != 1 or key in fields:
+                return None, 'os_release_malformed'
+            fields[key] = values[0]
+        if not fields.get('ID') or not fields.get('VERSION_ID'):
+            return None, 'os_release_missing_field'
+        return fields['ID'] + ' ' + fields['VERSION_ID'], None
+    except (ValueError, UnicodeError):
+        return None, 'os_release_malformed'
+    except OSError:
+        return None, 'os_release_unavailable'
+
+
+def boot_identity(path):
+    try:
+        with path.open(encoding='ascii') as stream:
+            value = stream.read(128).strip()
+        if not re.fullmatch(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}', value):
+            return None, 'boot_id_malformed'
+        return value, None
+    except (OSError, UnicodeError):
+        return None, 'boot_id_unavailable'
+
+
+def emit(runtime=Path('/run/x200-boot-banner'), os_release=Path('/etc/os-release'),
+         boot_path=Path('/proc/sys/kernel/random/boot_id'), output=None):
+    output = output or sys.stdout
+    boot_id, boot_reason = boot_identity(boot_path)
+    # /run resets at boot even when the kernel boot ID cannot be read.
+    runtime.mkdir(mode=0o700, parents=False, exist_ok=True)
+    directory = os.open(runtime, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        info = os.fstat(directory)
+        if info.st_uid != os.geteuid() or info.st_mode & 0o077:
+            raise OSError('unsafe runtime directory')
+        fd = os.open('emitted', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600, dir_fd=directory)
+        with os.fdopen(fd, 'r+', encoding='ascii') as marker:
+            info = os.fstat(marker.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_uid != os.geteuid():
+                raise OSError('unsafe runtime marker')
+            fcntl.flock(marker, fcntl.LOCK_EX)
+            if marker.read(128):
+                print(PREFIX + 'banner already shown for this boot', file=output)
+                return
+            try:
+                kernel = os.uname()
+            except OSError:
+                kernel = None
+            print(line('Kernel', kernel.release if kernel else None), file=output)
+            print(line('Build', kernel.version if kernel else None), file=output)
+            identity, reason = os_identity(os_release)
+            print(line('OS', identity, reason), file=output)
+            print(line('Boot ID', boot_id, boot_reason), file=output)
+            output.flush()
+            marker.write((boot_id or 'unknown') + '\n')
+            marker.flush()
+    finally:
+        os.close(directory)
+
+
+if __name__ == '__main__':
+    try:
+        emit()
+    except (OSError, UnicodeError):
+        # Informational service: formatting/storage failure must never gate boot.
+        print(PREFIX + 'WARN: banner unavailable (output unavailable)')

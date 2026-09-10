@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "name": "x200-development-vntb-v2",
+  "authority": "explicit-smartnic-design-delta",
+  "scope": "runtime diagnostic; no product PCI ID allocation or unattended restart qualification",
+  "identity": "1957:e200",
+  "class": "0500",
+  "pf": 0,
+  "config_bar": 0,
+  "doorbell_bar": 2,
+  "mw_bar": 4,
+  "mw_bar_64bit": true,
+  "mw_count": 1,
+  "mw_bytes": 1048576,
+  "scratchpads": 64,
+  "doorbells": 1,
+  "doorbell_offset": 4,
+  "doorbell_data": 1,
+  "msi_vectors": 2,
+  "link_msi_number": 1,
+  "doorbell_msi_number": 2,
+  "transport_parameters": {
+    "use_dma": 0,
+    "use_msi": 0,
+    "max_num_clients": 1
+  },
+  "teardown": "UART acknowledgment of card netdev removal before any host teardown; then quiesce host, remove both PFs, and only then stop/unbind card function",
+  "evidence_facts": [
+    "board-pcie5-x8-endpoint",
+    "x200-pcie-persistent-linux-publication-design",
+    "x200-vntb-protocol-v1"
+  ],
+  "implementation": [
+    "../linux/patches/0003-vntb.patch",
+    "vntb-host.patch",
+    "../linux/patches/0004-ntb-transport.patch"
+  ],
+  "config_bytes": 4096,
+  "doorbell_bytes": 4096,
+  "doorbell_bar_64bit": true,
+  "reserved_bars": [
+    1,
+    3,
+    5
+  ]
+}

@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "layout_id": "lx2160-x200-flash-v1",
+  "capacity": "0x01000000",
+  "layout_alignment": "0x00010000",
+  "erased_byte": "0xff",
+  "erase_policy": {
+    "update_erase_domain": "0x00010000",
+    "exact_part_and_jedec_id_required_before_write": true
+  },
+  "addressing": {
+    "mode": "independent-bank-local",
+    "concatenated": false,
+    "banks": [
+      { "id": "D11", "capacity": "0x01000000" },
+      { "id": "D12", "capacity": "0x01000000" }
+    ]
+  },
+  "upstream": {
+    "flexbuild_tag": "LSDK-26.06_DEBIAN-13_LF-6.12.49",
+    "flexbuild_commit": "fde434ad2a29386e6e97dec0c072308048951de5",
+    "component_tag": "lf-6.12.49-2.2.0",
+    "atf_commit": "a266ff458c2526a6474036a5c6648be6fdc54fe3",
+    "uboot_commit": "4ddbad60eff308a5b356fb9ab8734ac382ddd692"
+  },
+  "identity_policy": {
+    "mac_authority": "x200-soc-derived-mac-v1",
+    "evidence_ref": "../hardware-evidence-v1.json#/facts/x200-soc-derived-mac-v1",
+    "board_eeprom_storage": false,
+    "manufacturing_metadata_status": "unimplemented"
+  },
+  "profile_contract": {
+    "manifest_field": "board_profile_id",
+    "bound_components": ["rcw", "dpc", "dpl", "dtb"]
+  },
+  "environment_policy": {
+    "primary_offset": "0x500000",
+    "redundant_offset": "0x510000",
+    "environment_size": "0x010000",
+    "sector_size": "0x010000",
+    "authenticated_boot_policy_source": "compiled-in-policy-or-signed-manifest",
+    "mutable_environment_must_not_bypass_secure_boot": true
+  },
+  "fuse_provisioning_policy": {
+    "normal_image_state": "erased",
+    "allowed_content": "signed-command-header-or-public-metadata",
+    "post_provision_state": "erased-or-read-only",
+    "private_keys_forbidden": true,
+    "plaintext_secrets_forbidden": true
+  },
+  "manifest_contract": "firmware-manifest-contract-v1.json",
+  "external_artifacts": [
+    "linux-kernel",
+    "initramfs",
+    "debian-rootfs"
+  ],
+  "regions": [
+    {
+      "name": "boot-pbl",
+      "offset": "0x000000",
+      "size": "0x100000",
+      "payload_max_size": "0x100000",
+      "content": "RCW + PBI + TF-A BL2 (bl2_flexspi_nor.pbl)",
+      "update_class": "boot-critical",
+      "required": true,
+      "internal_layout": {
+        "rcw_pbi_offset": "0x000000",
+        "bl2_offset": "0x009000",
+        "flexspi_window_base": "0x20000000",
+        "blockcopy_source": "0x20009000",
+        "blockcopy_length": "derived-from-bl2.bin"
+      }
+    },
+    {
+      "name": "fip",
+      "offset": "0x100000",
+      "size": "0x400000",
+      "payload_max_size": "0x400000",
+      "content": "TF-A FIP containing BL31 and U-Boot BL33",
+      "update_class": "boot-critical",
+      "required": true
+    },
+    {
+      "name": "env-primary",
+      "offset": "0x500000",
+      "size": "0x010000",
+      "payload_max_size": "0x010000",
+      "content": "Primary U-Boot environment erase span",
+      "update_class": "runtime-mutable",
+      "required": false
+    },
+    {
+      "name": "env-redundant",
+      "offset": "0x510000",
+      "size": "0x010000",
+      "payload_max_size": "0x010000",
+      "content": "Redundant U-Boot environment erase span",
+      "update_class": "runtime-mutable",
+      "required": false
+    },
+    {
+      "name": "env-reserved",
+      "offset": "0x520000",
+      "size": "0x0e0000",
+      "payload_max_size": "0x000000",
+      "content": "Reserved for future U-Boot runtime state",
+      "update_class": "reserved",
+      "required": false
+    },
+    {
+      "name": "secure-headers",
+      "offset": "0x600000",
+      "size": "0x200000",
+      "payload_max_size": "0x200000",
+      "content": "Secure-boot headers; erased while secure boot is disabled",
+      "update_class": "security",
+      "required": false
+    },
+    {
+      "name": "ddr-phy-fip",
+      "offset": "0x800000",
+      "size": "0x080000",
+      "payload_max_size": "0x080000",
+      "content": "LX2160A DDR PHY training firmware FIP",
+      "update_class": "boot-critical",
+      "required": true
+    },
+    {
+      "name": "fuse-provisioning-capsule",
+      "offset": "0x880000",
+      "size": "0x080000",
+      "payload_max_size": "0x080000",
+      "content": "Signed/public fuse provisioning capsule; erased in normal images and never contains private keys",
+      "update_class": "security-provisioning",
+      "required": false
+    },
+    {
+      "name": "cpld-firmware",
+      "offset": "0x900000",
+      "size": "0x040000",
+      "payload_max_size": "0x040000",
+      "content": "Optional platform CPLD firmware capsule",
+      "update_class": "platform-firmware",
+      "required": false
+    },
+    {
+      "name": "platform-reserved-a",
+      "offset": "0x940000",
+      "size": "0x040000",
+      "payload_max_size": "0x000000",
+      "content": "Unassigned on the current X200; no retimer is populated",
+      "update_class": "reserved",
+      "required": false
+    },
+    {
+      "name": "platform-reserved-b",
+      "offset": "0x980000",
+      "size": "0x040000",
+      "payload_max_size": "0x000000",
+      "content": "Unassigned on the current X200; no external Ethernet PHY is populated",
+      "update_class": "reserved",
+      "required": false
+    },
+    {
+      "name": "manifest-a",
+      "offset": "0x9c0000",
+      "size": "0x010000",
+      "payload_max_size": "0x010000",
+      "content": "Firmware composition manifest copy A",
+      "update_class": "metadata",
+      "required": true
+    },
+    {
+      "name": "manifest-b",
+      "offset": "0x9d0000",
+      "size": "0x010000",
+      "payload_max_size": "0x010000",
+      "content": "Firmware composition manifest copy B",
+      "update_class": "metadata",
+      "required": true
+    },
+    {
+      "name": "update-journal",
+      "offset": "0x9e0000",
+      "size": "0x010000",
+      "payload_max_size": "0x010000",
+      "content": "Power-loss-safe firmware update journal",
+      "update_class": "runtime-mutable",
+      "required": false
+    },
+    {
+      "name": "manifest-future",
+      "offset": "0x9f0000",
+      "size": "0x010000",
+      "payload_max_size": "0x000000",
+      "content": "Reserved for a future manifest format",
+      "update_class": "reserved",
+      "required": false
+    },
+    {
+      "name": "mc-firmware",
+      "offset": "0xa00000",
+      "size": "0x300000",
+      "payload_max_size": "0x300000",
+      "content": "DPAA2 Management Complex firmware",
+      "update_class": "datapath",
+      "required": true
+    },
+    {
+      "name": "dpl",
+      "offset": "0xd00000",
+      "size": "0x100000",
+      "payload_max_size": "0x100000",
+      "content": "DPAA2 Data Path Layout",
+      "update_class": "datapath",
+      "required": true
+    },
+    {
+      "name": "dpc",
+      "offset": "0xe00000",
+      "size": "0x100000",
+      "payload_max_size": "0x100000",
+      "content": "DPAA2 Data Path Configuration",
+      "update_class": "datapath",
+      "required": true
+    },
+    {
+      "name": "linux-dtb",
+      "offset": "0xf00000",
+      "size": "0x100000",
+      "payload_max_size": "0x100000",
+      "content": "X200 Linux device tree",
+      "update_class": "hardware-description",
+      "required": true
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+--- a/drivers/ntb/ntb_transport.c
++++ b/drivers/ntb/ntb_transport.c
+@@ -1350,7 +1350,12 @@
+ 
+ 	qp_bitmap = ntb_db_valid_mask(ndev);
+ 
+-	qp_count = ilog2(qp_bitmap);
++	/* A bitmap with bit zero set supplies one queue, not zero. */
++	qp_count = fls64(qp_bitmap);
++	if (qp_count <= nt->use_msi) {
++		rc = -EINVAL;
++		goto err1;
++	}
+ 	if (nt->use_msi) {
+ 		qp_count -= 1;
+ 		nt->msi_db_mask = BIT_ULL(qp_count);

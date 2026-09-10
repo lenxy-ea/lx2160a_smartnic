@@ -1,0 +1,733 @@
+--- a/drivers/pci/endpoint/functions/pci-epf-vntb.c
++++ b/drivers/pci/endpoint/functions/pci-epf-vntb.c
+@@ -60,7 +60,7 @@
+ #define LINK_STATUS_UP			BIT(0)
+ 
+ #define SPAD_COUNT			64
+-#define DB_COUNT			4
++#define DB_COUNT			1
+ #define NTB_MW_OFFSET			2
+ #define DB_COUNT_MASK			GENMASK(15, 0)
+ #define MSIX_ENABLE			BIT(16)
+@@ -124,7 +124,14 @@
+ 	u32 db_count;
+ 	u32 spad_count;
+ 	u64 mws_size[MAX_MW];
+-	u64 db;
++	unsigned long db;
++	unsigned long db_mask;
++	bool stopping;
++	u64 poll_count;
++	u64 db_observed;
++	u64 db_events;
++	struct pci_bus *vpci_bus;
++	bool mw_mapped[MAX_MW];
+ 	u32 vbus_number;
+ 	u16 vntb_pid;
+ 	u16 vntb_vid;
+@@ -148,8 +155,8 @@
+ #define ntb_ndev(__ntb) container_of(__ntb, struct epf_ntb, ntb)
+ 
+ static struct pci_epf_header epf_ntb_header = {
+-	.vendorid	= PCI_ANY_ID,
+-	.deviceid	= PCI_ANY_ID,
++	.vendorid	= 0x1957, /* X200 development contract, not a product allocation */
++	.deviceid	= 0xe200,
+ 	.baseclass_code	= PCI_BASE_CLASS_MEMORY,
+ 	.interrupt_pin	= PCI_INTERRUPT_INTA,
+ };
+@@ -206,6 +213,14 @@
+ 	u64 addr, size;
+ 	int ret = 0;
+ 
++	if (mw >= ntb->num_mws || !ntb->reg->size ||
++	    ntb->reg->size > ntb->mws_size[mw] ||
++	    !IS_ALIGNED(ntb->reg->addr, SZ_4K))
++		return -EINVAL;
++	if (ntb->mw_mapped[mw])
++		pci_epc_unmap_addr(ntb->epf->epc, ntb->epf->func_no,
++				   ntb->epf->vfunc_no, ntb->vpci_mw_phy[mw]);
++	ntb->mw_mapped[mw] = false;
+ 	phys_addr = ntb->vpci_mw_phy[mw];
+ 	addr = ntb->reg->addr;
+ 	size = ntb->reg->size;
+@@ -217,6 +232,8 @@
+ 	if (ret)
+ 		dev_err(&ntb->epf->epc->dev,
+ 			"Failed to map memory window %d address\n", mw);
++	if (!ret)
++		ntb->mw_mapped[mw] = true;
+ 	return ret;
+ }
+ 
+@@ -230,6 +247,9 @@
+  */
+ static void epf_ntb_teardown_mw(struct epf_ntb *ntb, u32 mw)
+ {
++	if (mw >= ntb->num_mws || !ntb->mw_mapped[mw])
++		return;
++	ntb->mw_mapped[mw] = false;
+ 	pci_epc_unmap_addr(ntb->epf->epc,
+ 			   ntb->epf->func_no,
+ 			   ntb->epf->vfunc_no,
+@@ -253,69 +273,85 @@
+ 	struct device *dev;
+ 	int ret;
+ 	int i;
++	u16 status = COMMAND_STATUS_ERROR;
+ 
+ 	ntb = container_of(work, struct epf_ntb, cmd_handler.work);
+ 
+-	for (i = 1; i < ntb->db_count; i++) {
+-		if (ntb->epf_db[i]) {
+-			ntb->db |= 1 << (i - 1);
+-			ntb_db_event(&ntb->ntb, i);
+-			ntb->epf_db[i] = 0;
++	if (READ_ONCE(ntb->stopping))
++		return;
++	WRITE_ONCE(ntb->poll_count, ntb->poll_count + 1);
++	for (i = 0; i < ntb->db_count; i++) {
++		if (READ_ONCE(ntb->epf_db[i + 1])) {
++			WRITE_ONCE(ntb->db_observed, ntb->db_observed + 1);
++			WRITE_ONCE(ntb->epf_db[i + 1], 0);
++			set_bit(i, &ntb->db);
+ 		}
++		if (test_bit(i, &ntb->db) && !test_bit(i, &ntb->db_mask)) {
++			WRITE_ONCE(ntb->db_events, ntb->db_events + 1);
++			ntb_db_event(&ntb->ntb, 0);
++		}
+ 	}
+ 
+ 	ctrl = ntb->reg;
+-	command = ctrl->command;
++	command = READ_ONCE(ctrl->command);
+ 	if (!command)
+ 		goto reset_handler;
+-	argument = ctrl->argument;
+-
+-	ctrl->command = 0;
+-	ctrl->argument = 0;
++	dma_rmb();
++	argument = READ_ONCE(ctrl->argument);
++
++	WRITE_ONCE(ctrl->command, 0);
++	WRITE_ONCE(ctrl->argument, 0);
+ 
+ 	ctrl = ntb->reg;
+ 	dev = &ntb->epf->dev;
+ 
+ 	switch (command) {
+ 	case COMMAND_CONFIGURE_DOORBELL:
+-		ctrl->command_status = COMMAND_STATUS_OK;
++		status = argument == ntb->db_count + 1 ?
++			COMMAND_STATUS_OK : COMMAND_STATUS_ERROR;
+ 		break;
+ 	case COMMAND_TEARDOWN_DOORBELL:
+-		ctrl->command_status = COMMAND_STATUS_OK;
++		status = COMMAND_STATUS_OK;
+ 		break;
+ 	case COMMAND_CONFIGURE_MW:
+ 		ret = epf_ntb_configure_mw(ntb, argument);
+ 		if (ret < 0)
+-			ctrl->command_status = COMMAND_STATUS_ERROR;
++			status = COMMAND_STATUS_ERROR;
+ 		else
+-			ctrl->command_status = COMMAND_STATUS_OK;
++			status = COMMAND_STATUS_OK;
+ 		break;
+ 	case COMMAND_TEARDOWN_MW:
+ 		epf_ntb_teardown_mw(ntb, argument);
+-		ctrl->command_status = COMMAND_STATUS_OK;
++		status = argument < ntb->num_mws ?
++			COMMAND_STATUS_OK : COMMAND_STATUS_ERROR;
+ 		break;
+ 	case COMMAND_LINK_UP:
+ 		ntb->linkup = true;
+ 		ret = epf_ntb_link_up(ntb, true);
+ 		if (ret < 0)
+-			ctrl->command_status = COMMAND_STATUS_ERROR;
++			status = COMMAND_STATUS_ERROR;
+ 		else
+-			ctrl->command_status = COMMAND_STATUS_OK;
+-		goto reset_handler;
++			status = COMMAND_STATUS_OK;
++		break;
+ 	case COMMAND_LINK_DOWN:
+ 		ntb->linkup = false;
+ 		ret = epf_ntb_link_up(ntb, false);
+ 		if (ret < 0)
+-			ctrl->command_status = COMMAND_STATUS_ERROR;
++			status = COMMAND_STATUS_ERROR;
+ 		else
+-			ctrl->command_status = COMMAND_STATUS_OK;
++			status = COMMAND_STATUS_OK;
+ 		break;
+ 	default:
+ 		dev_err(dev, "UNKNOWN command: %d\n", command);
+ 		break;
+ 	}
+ 
++	dma_wmb();
++	WRITE_ONCE(ctrl->command_status, status);
++
+ reset_handler:
++	if (READ_ONCE(ntb->stopping))
++		return;
+ 	queue_delayed_work(kpcintb_workqueue, &ntb->cmd_handler,
+ 			   msecs_to_jiffies(5));
+ }
+@@ -425,7 +461,8 @@
+ 	size = epc_features->bar[barno].fixed_size;
+ 	align = epc_features->align;
+ 
+-	if ((!IS_ALIGNED(size, align)))
++	if ((size && size != SZ_4K) ||
++	    (align && !IS_ALIGNED(SZ_4K, align)))
+ 		return -EINVAL;
+ 
+ 	spad_count = ntb->spad_count;
+@@ -433,18 +470,17 @@
+ 	ctrl_size = sizeof(struct epf_ntb_ctrl);
+ 	spad_size = 2 * spad_count * sizeof(u32);
+ 
+-	if (!align) {
+-		ctrl_size = roundup_pow_of_two(ctrl_size);
+-		spad_size = roundup_pow_of_two(spad_size);
+-	} else {
+-		ctrl_size = ALIGN(ctrl_size, align);
+-		spad_size = ALIGN(spad_size, align);
+-	}
+-
+-	if (!size)
+-		size = ctrl_size + spad_size;
+-	else if (size < ctrl_size + spad_size)
++	ctrl_size = roundup_pow_of_two(ctrl_size);
++	spad_size = roundup_pow_of_two(spad_size);
++	if (ctrl_size + spad_size > SZ_4K)
+ 		return -EINVAL;
++
++	/* X200 control and doorbell each occupy a full 4 KiB page.
++	 * Doorbell now uses the 64-bit BAR2 pair; the explicit BAR selector
++	 * excludes BAR1 because its hidden MSI-X table intercepts accesses.
++	 * The measured iATU alignment remains 4 KiB.
++	 */
++	size = SZ_4K;
+ 
+ 	base = pci_epf_alloc_space(epf, size, barno, epc_features, 0);
+ 	if (!base) {
+@@ -465,7 +501,7 @@
+ 
+ 	for (i = 0; i < ntb->db_count; i++) {
+ 		ntb->reg->db_data[i] = 1 + i;
+-		ntb->reg->db_offset[i] = 0;
++		ntb->reg->db_offset[i] = sizeof(u32);
+ 	}
+ 
+ 	return 0;
+@@ -491,8 +527,8 @@
+ 
+ 	epc_features = pci_epc_get_features(ntb->epf->epc, ntb->epf->func_no, ntb->epf->vfunc_no);
+ 
+-	if (!(epc_features->msix_capable || epc_features->msi_capable)) {
+-		dev_err(dev, "MSI or MSI-X is required for doorbell\n");
++	if (!epc_features->msi_capable) {
++		dev_err(dev, "MSI is required for doorbell\n");
+ 		return -EINVAL;
+ 	}
+ 
+@@ -508,7 +544,7 @@
+ 		ret = pci_epc_set_msi(ntb->epf->epc,
+ 				      ntb->epf->func_no,
+ 				      ntb->epf->vfunc_no,
+-				      16);
++				      ntb->db_count + 1);
+ 		if (ret) {
+ 			dev_err(dev, "MSI configuration failed\n");
+ 			return ret;
+@@ -532,12 +568,16 @@
+ 	struct pci_epf_bar *epf_bar;
+ 	void *mw_addr;
+ 	enum pci_barno barno;
+-	size_t size = sizeof(u32) * ntb->db_count;
++	size_t size = SZ_4K;
+ 
+ 	epc_features = pci_epc_get_features(ntb->epf->epc,
+ 					    ntb->epf->func_no,
+ 					    ntb->epf->vfunc_no);
+ 	barno = ntb->epf_ntb_bar[BAR_DB];
++	if ((epc_features->bar[barno].fixed_size &&
++	     epc_features->bar[barno].fixed_size != SZ_4K) ||
++	    (epc_features->align && !IS_ALIGNED(SZ_4K, epc_features->align)))
++		return -EINVAL;
+ 
+ 	mw_addr = pci_epf_alloc_space(ntb->epf, size, barno, epc_features, 0);
+ 	if (!mw_addr) {
+@@ -573,11 +613,11 @@
+ 	enum pci_barno barno;
+ 
+ 	barno = ntb->epf_ntb_bar[BAR_DB];
+-	pci_epf_free_space(ntb->epf, ntb->epf_db, barno, 0);
+ 	pci_epc_clear_bar(ntb->epf->epc,
+ 			  ntb->epf->func_no,
+ 			  ntb->epf->vfunc_no,
+ 			  &ntb->epf->bar[barno]);
++	pci_epf_free_space(ntb->epf, ntb->epf_db, barno, 0);
+ }
+ 
+ /**
+@@ -593,6 +633,9 @@
+ 	u64 size;
+ 	enum pci_barno barno;
+ 	struct device *dev = &ntb->epf->dev;
++	const struct pci_epc_features *features =
++		pci_epc_get_features(ntb->epf->epc, ntb->epf->func_no,
++				     ntb->epf->vfunc_no);
+ 
+ 	for (i = 0; i < ntb->num_mws; i++) {
+ 		size = ntb->mws_size[i];
+@@ -602,7 +645,8 @@
+ 		ntb->epf->bar[barno].size = size;
+ 		ntb->epf->bar[barno].addr = NULL;
+ 		ntb->epf->bar[barno].phys_addr = 0;
+-		ntb->epf->bar[barno].flags |= upper_32_bits(size) ?
++		ntb->epf->bar[barno].flags =
++			(features->bar[barno].only_64bit || upper_32_bits(size)) ?
+ 				PCI_BASE_ADDRESS_MEM_TYPE_64 :
+ 				PCI_BASE_ADDRESS_MEM_TYPE_32;
+ 
+@@ -649,6 +693,7 @@
+ 	int i;
+ 
+ 	for (i = 0; i < num_mws; i++) {
++		epf_ntb_teardown_mw(ntb, i);
+ 		barno = ntb->epf_ntb_bar[BAR_MW0 + i];
+ 		pci_epc_clear_bar(ntb->epf->epc,
+ 				  ntb->epf->func_no,
+@@ -663,18 +708,6 @@
+ }
+ 
+ /**
+- * epf_ntb_epc_destroy() - Cleanup NTB EPC interface
+- * @ntb: NTB device that facilitates communication between HOST and VHOST
+- *
+- * Wrapper for epf_ntb_epc_destroy_interface() to cleanup all the NTB interfaces
+- */
+-static void epf_ntb_epc_destroy(struct epf_ntb *ntb)
+-{
+-	pci_epc_remove_epf(ntb->epf->epc, ntb->epf, 0);
+-	pci_epc_put(ntb->epf->epc);
+-}
+-
+-/**
+  * epf_ntb_init_epc_bar() - Identify BARs to be used for each of the NTB
+  * constructs (scratchpad region, doorbell, memorywindow)
+  * @ntb: NTB device that facilitates communication between HOST and VHOST
+@@ -683,38 +716,31 @@
+  */
+ static int epf_ntb_init_epc_bar(struct epf_ntb *ntb)
+ {
+-	const struct pci_epc_features *epc_features;
+-	enum pci_barno barno;
+-	enum epf_ntb_bar bar;
+-	struct device *dev;
+-	u32 num_mws;
+-	int i;
+-
+-	barno = BAR_0;
+-	num_mws = ntb->num_mws;
+-	dev = &ntb->epf->dev;
+-	epc_features = pci_epc_get_features(ntb->epf->epc, ntb->epf->func_no, ntb->epf->vfunc_no);
+-
+-	/* These are required BARs which are mandatory for NTB functionality */
+-	for (bar = BAR_CONFIG; bar <= BAR_MW0; bar++, barno++) {
+-		barno = pci_epc_get_next_free_bar(epc_features, barno);
+-		if (barno < 0) {
+-			dev_err(dev, "Fail to get NTB function BAR\n");
+-			return -ENOENT;
+-		}
+-		ntb->epf_ntb_bar[bar] = barno;
+-	}
+-
+-	/* These are optional BARs which don't impact NTB functionality */
+-	for (bar = BAR_MW1, i = 1; i < num_mws; bar++, barno++, i++) {
+-		barno = pci_epc_get_next_free_bar(epc_features, barno);
+-		if (barno < 0) {
+-			ntb->num_mws = i;
+-			dev_dbg(dev, "BAR not available for > MW%d\n", i + 1);
+-		}
+-		ntb->epf_ntb_bar[bar] = barno;
+-	}
+-
++	const struct pci_epc_features *features;
++
++	features = pci_epc_get_features(ntb->epf->epc,
++				       ntb->epf->func_no, ntb->epf->vfunc_no);
++	/* X200 BAR1 exposes the hidden MSI-X table, not the allocated DB RAM.
++	 * Never select it through the generic next-free-BAR allocator.
++	 * BAR2 and BAR4 require 64-bit pairs; BAR3/BAR5 are their upper halves.
++	 */
++	if (!features || ntb->num_mws != 1 ||
++	    features->bar[BAR_0].type == BAR_RESERVED ||
++	    features->bar[BAR_0].only_64bit ||
++	    features->bar[BAR_2].type == BAR_RESERVED ||
++	    !features->bar[BAR_2].only_64bit ||
++	    features->bar[BAR_3].type != BAR_RESERVED ||
++	    features->bar[BAR_4].type == BAR_RESERVED ||
++	    !features->bar[BAR_4].only_64bit ||
++	    features->bar[BAR_5].type != BAR_RESERVED ||
++	    (features->bar[BAR_0].fixed_size && features->bar[BAR_0].fixed_size != SZ_4K) ||
++	    (features->bar[BAR_2].fixed_size && features->bar[BAR_2].fixed_size != SZ_4K) ||
++	    (features->bar[BAR_4].fixed_size && features->bar[BAR_4].fixed_size != SZ_1M))
++		return -EINVAL;
++
++	ntb->epf_ntb_bar[BAR_CONFIG] = BAR_0;
++	ntb->epf_ntb_bar[BAR_DB] = BAR_2;
++	ntb->epf_ntb_bar[BAR_MW0] = BAR_4;
+ 	return 0;
+ }
+ 
+@@ -774,8 +800,6 @@
+ 		}
+ 	}
+ 
+-	INIT_DELAYED_WORK(&ntb->cmd_handler, epf_ntb_cmd_handler);
+-	queue_work(kpcintb_workqueue, &ntb->cmd_handler.work);
+ 
+ 	return 0;
+ 
+@@ -799,6 +823,8 @@
+  */
+ static void epf_ntb_epc_cleanup(struct epf_ntb *ntb)
+ {
++	WRITE_ONCE(ntb->stopping, true);
++	cancel_delayed_work_sync(&ntb->cmd_handler);
+ 	epf_ntb_mw_bar_clear(ntb, ntb->num_mws);
+ 	epf_ntb_db_bar_clear(ntb);
+ 	epf_ntb_config_sspad_bar_clear(ntb);
+@@ -827,6 +853,8 @@
+ 	if (ret)							\
+ 		return ret;						\
+ 									\
++	if (ntb->epf->epc)					\
++		return -EBUSY;					\
+ 	ntb->_name = val;						\
+ 									\
+ 	return len;							\
+@@ -875,6 +903,8 @@
+ 		return -EINVAL;						\
+ 	}								\
+ 									\
++	if (ntb->epf->epc)					\
++		return -EBUSY;					\
+ 	ntb->mws_size[win_no - 1] = val;				\
+ 									\
+ 	return len;							\
+@@ -892,7 +922,9 @@
+ 	if (ret)
+ 		return ret;
+ 
+-	if (val > MAX_MW)
++	if (ntb->epf->epc)
++		return -EBUSY;
++	if (val != 1)
+ 		return -EINVAL;
+ 
+ 	ntb->num_mws = val;
+@@ -931,7 +963,43 @@
+ CONFIGFS_ATTR(epf_ntb_, vntb_pid);
+ CONFIGFS_ATTR(epf_ntb_, vntb_vid);
+ 
++/* Read-only diagnostic snapshots. epf->lock excludes bind/unbind so BAR
++ * backing remains allocated while read. Counters have one writer (the poller);
++ * individual fields are sampled with READ_ONCE, not as an atomic snapshot.
++ */
++static ssize_t epf_ntb_diagnostics_show(struct config_item *item, char *page)
++{
++	struct epf_ntb *ntb = to_epf_ntb(to_config_group(item));
++	struct pci_epf *epf = ntb->epf;
++	ssize_t len;
++
++	mutex_lock(&epf->lock);
++	if (READ_ONCE(ntb->stopping)) {
++		len = sysfs_emit(page, "bound=0\n");
++		goto out;
++	}
++	len = sysfs_emit(page,
++		"bound=1 poll_count=%llu db_observed=%llu db_events=%llu "
++		"db=%#lx db_mask=%#lx "
++		"epf_db0=%#x epf_db1=%#x epf_db2=%#x epf_db3=%#x "
++		"config_phys=%pa doorbell_phys=%pa mw_phys=%pa\n",
++		READ_ONCE(ntb->poll_count), READ_ONCE(ntb->db_observed),
++		READ_ONCE(ntb->db_events), READ_ONCE(ntb->db),
++		READ_ONCE(ntb->db_mask), READ_ONCE(ntb->epf_db[0]),
++		READ_ONCE(ntb->epf_db[1]), READ_ONCE(ntb->epf_db[2]),
++		READ_ONCE(ntb->epf_db[3]),
++		&epf->bar[ntb->epf_ntb_bar[BAR_CONFIG]].phys_addr,
++		&epf->bar[ntb->epf_ntb_bar[BAR_DB]].phys_addr,
++		&epf->bar[ntb->epf_ntb_bar[BAR_MW0]].phys_addr);
++out:
++	mutex_unlock(&epf->lock);
++	return len;
++}
++
++CONFIGFS_ATTR_RO(epf_ntb_, diagnostics);
++
+ static struct configfs_attribute *epf_ntb_attrs[] = {
++	&epf_ntb_attr_diagnostics,
+ 	&epf_ntb_attr_spad_count,
+ 	&epf_ntb_attr_db_count,
+ 	&epf_ntb_attr_num_mws,
+@@ -997,7 +1065,9 @@
+ static int pci_read(struct pci_bus *bus, unsigned int devfn, int where, int size, u32 *val)
+ {
+ 	if (devfn == 0) {
+-		memcpy(val, ((u8 *)pci_space) + where, size);
++		*val = ~0U;
++		if (where >= 0 && where + size <= sizeof(pci_space))
++			memcpy(val, ((u8 *)pci_space) + where, size);
+ 		return PCIBIOS_SUCCESSFUL;
+ 	}
+ 	return PCIBIOS_DEVICE_NOT_FOUND;
+@@ -1017,13 +1087,23 @@
+ {
+ 	struct pci_bus *vpci_bus;
+ 	struct epf_ntb *ndev = sysdata;
+-
+-	vpci_bus = pci_scan_bus(ndev->vbus_number, &vpci_ops, sysdata);
++	LIST_HEAD(resources);
++
++	/* The virtual bridge needs a live parent: arm64 domain release reads
++	 * bridge->dev.parent->of_node. pci_scan_bus() supplies NULL and caused
++	 * an observed unbind oops in pci_bus_release_domain_nr().
++	 */
++	pci_add_resource(&resources, &ioport_resource);
++	pci_add_resource(&resources, &iomem_resource);
++	vpci_bus = pci_scan_root_bus(&ndev->epf->dev, ndev->vbus_number,
++				      &vpci_ops, sysdata, &resources);
+ 	if (!vpci_bus) {
++		pci_free_resource_list(&resources);
+ 		pr_err("create pci bus failed\n");
+ 		return -EINVAL;
+ 	}
+ 
++	ndev->vpci_bus = vpci_bus;
+ 	pci_bus_add_devices(vpci_bus);
+ 
+ 	return 0;
+@@ -1055,6 +1135,10 @@
+ 
+ static int vntb_epf_db_set_mask(struct ntb_dev *ntb, u64 db_bits)
+ {
++	if (db_bits & ~1ULL)
++		return -EINVAL;
++	if (db_bits)
++		set_bit(0, &ntb_ndev(ntb)->db_mask);
+ 	return 0;
+ }
+ 
+@@ -1067,6 +1151,9 @@
+ 	int ret;
+ 	struct device *dev;
+ 
++	if (pidx || idx != 0 || size != ntb->mws_size[0] ||
++	    !IS_ALIGNED(addr, SZ_4K))
++		return -EINVAL;
+ 	dev = &ntb->ntb.dev;
+ 	barno = ntb->epf_ntb_bar[BAR_MW0 + idx];
+ 	epf_bar = &ntb->epf->bar[barno];
+@@ -1074,7 +1161,8 @@
+ 	epf_bar->barno = barno;
+ 	epf_bar->size = size;
+ 
+-	ret = pci_epc_set_bar(ntb->epf->epc, 0, 0, epf_bar);
++	ret = pci_epc_set_bar(ntb->epf->epc, ntb->epf->func_no,
++			      ntb->epf->vfunc_no, epf_bar);
+ 	if (ret) {
+ 		dev_err(dev, "failure set mw trans\n");
+ 		return ret;
+@@ -1082,8 +1170,15 @@
+ 	return 0;
+ }
+ 
+-static int vntb_epf_mw_clear_trans(struct ntb_dev *ntb, int pidx, int idx)
+-{
++static int vntb_epf_mw_clear_trans(struct ntb_dev *ndev, int pidx, int idx)
++{
++	struct epf_ntb *ntb = ntb_ndev(ndev);
++
++	if (pidx || idx != 0)
++		return -EINVAL;
++	pci_epc_clear_bar(ntb->epf->epc, ntb->epf->func_no,
++			  ntb->epf->vfunc_no,
++			  &ntb->epf->bar[ntb->epf_ntb_bar[BAR_MW0]]);
+ 	return 0;
+ }
+ 
+@@ -1156,11 +1251,13 @@
+ 
+ static int vntb_epf_peer_db_set(struct ntb_dev *ndev, u64 db_bits)
+ {
+-	u32 interrupt_num = ffs(db_bits) + 1;
++	u32 interrupt_num = 1; /* MSI is one-based; vector 0 is link. */
+ 	struct epf_ntb *ntb = ntb_ndev(ndev);
+ 	u8 func_no, vfunc_no;
+ 	int ret;
+ 
++	if (db_bits != 1)
++		return -EINVAL;
+ 	func_no = ntb->epf->func_no;
+ 	vfunc_no = ntb->epf->vfunc_no;
+ 
+@@ -1176,7 +1273,7 @@
+ {
+ 	struct epf_ntb *ntb = ntb_ndev(ndev);
+ 
+-	return ntb->db;
++	return READ_ONCE(ntb->db);
+ }
+ 
+ static int vntb_epf_mw_get_align(struct ntb_dev *ndev, int pidx, int idx,
+@@ -1190,7 +1287,7 @@
+ 		*addr_align = SZ_4K;
+ 
+ 	if (size_align)
+-		*size_align = 1;
++		*size_align = ntb->mws_size[0];
+ 
+ 	if (size_max)
+ 		*size_max = ntb->mws_size[idx];
+@@ -1209,6 +1306,10 @@
+ 
+ static int vntb_epf_db_clear_mask(struct ntb_dev *ndev, u64 db_bits)
+ {
++	if (db_bits & ~1ULL)
++		return -EINVAL;
++	if (db_bits)
++		clear_bit(0, &ntb_ndev(ndev)->db_mask);
+ 	return 0;
+ }
+ 
+@@ -1216,7 +1317,10 @@
+ {
+ 	struct epf_ntb *ntb = ntb_ndev(ndev);
+ 
+-	ntb->db &= ~db_bits;
++	if (db_bits & ~1ULL)
++		return -EINVAL;
++	if (db_bits)
++		clear_bit(0, &ntb->db);
+ 	return 0;
+ }
+ 
+@@ -1281,10 +1385,18 @@
+ 	{},
+ };
+ 
++static void pci_vntb_remove(struct pci_dev *pdev)
++{
++	struct epf_ntb *ntb = pdev->sysdata;
++
++	ntb_unregister_device(&ntb->ntb);
++}
++
+ static struct pci_driver vntb_pci_driver = {
+ 	.name           = "pci-vntb",
+ 	.id_table       = pci_vntb_table,
+ 	.probe          = pci_vntb_probe,
++	.remove         = pci_vntb_remove,
+ };
+ 
+ /* ============ PCIe EPF Driver Bind ====================*/
+@@ -1311,16 +1423,27 @@
+ 		return 0;
+ 	}
+ 
++	if (ntb->num_mws != 1 || ntb->db_count != 1 ||
++	    ntb->spad_count != 64 || ntb->mws_size[0] != SZ_1M ||
++	    epf->header->vendorid != 0x1957 ||
++	    epf->header->deviceid != 0xe200 || epf->func_no || epf->vfunc_no)
++		return -EINVAL;
++
+ 	ret = epf_ntb_init_epc_bar(ntb);
+ 	if (ret) {
+ 		dev_err(dev, "Failed to create NTB EPC\n");
+ 		goto err_bar_init;
+ 	}
+ 
++	if (ntb->epf_ntb_bar[BAR_CONFIG] != BAR_0 ||
++	    ntb->epf_ntb_bar[BAR_DB] != BAR_2 ||
++	    ntb->epf_ntb_bar[BAR_MW0] != BAR_4)
++		return -EINVAL;
++
+ 	ret = epf_ntb_config_spad_bar_alloc(ntb);
+ 	if (ret) {
+ 		dev_err(dev, "Failed to allocate BAR memory\n");
+-		goto err_bar_alloc;
++		goto err_bar_init;
+ 	}
+ 
+ 	ret = epf_ntb_epc_init(ntb);
+@@ -1345,6 +1468,13 @@
+ 	if (ret)
+ 		goto err_unregister;
+ 
++	ntb->db = 0;
++	ntb->db_mask = 0;
++	ntb->poll_count = 0;
++	ntb->db_observed = 0;
++	ntb->db_events = 0;
++	WRITE_ONCE(ntb->stopping, false);
++	queue_delayed_work(kpcintb_workqueue, &ntb->cmd_handler, 0);
+ 	return 0;
+ 
+ err_unregister:
+@@ -1355,7 +1485,6 @@
+ 	epf_ntb_config_spad_bar_free(ntb);
+ 
+ err_bar_init:
+-	epf_ntb_epc_destroy(ntb);
+ 
+ 	return ret;
+ }
+@@ -1370,11 +1499,14 @@
+ {
+ 	struct epf_ntb *ntb = epf_get_drvdata(epf);
+ 
++	WRITE_ONCE(ntb->stopping, true);
++	cancel_delayed_work_sync(&ntb->cmd_handler);
++	pci_stop_root_bus(ntb->vpci_bus);
++	pci_remove_root_bus(ntb->vpci_bus);
++	ntb->vpci_bus = NULL;
++	pci_unregister_driver(&vntb_pci_driver);
+ 	epf_ntb_epc_cleanup(ntb);
+ 	epf_ntb_config_spad_bar_free(ntb);
+-	epf_ntb_epc_destroy(ntb);
+-
+-	pci_unregister_driver(&vntb_pci_driver);
+ }
+ 
+ // EPF driver probe
+@@ -1409,6 +1541,14 @@
+ 	epf->header = &epf_ntb_header;
+ 	ntb->epf = epf;
+ 	ntb->vbus_number = 0xff;
++	ntb->num_mws = 1;
++	ntb->db_count = DB_COUNT;
++	ntb->spad_count = SPAD_COUNT;
++	ntb->mws_size[0] = SZ_1M;
++	ntb->vntb_vid = 0x1957;
++	ntb->vntb_pid = 0xe200;
++	ntb->stopping = true;
++	INIT_DELAYED_WORK(&ntb->cmd_handler, epf_ntb_cmd_handler);
+ 	epf_set_drvdata(epf, ntb);
+ 
+ 	dev_info(dev, "pci-ep epf driver loaded\n");
+@@ -1436,6 +1576,8 @@
+ 
+ 	kpcintb_workqueue = alloc_workqueue("kpcintb", WQ_MEM_RECLAIM |
+ 					    WQ_HIGHPRI, 0);
++	if (!kpcintb_workqueue)
++		return -ENOMEM;
+ 	ret = pci_epf_register_driver(&epf_ntb_driver);
+ 	if (ret) {
+ 		destroy_workqueue(kpcintb_workqueue);

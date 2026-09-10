@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/nxp-imx/linux-imx.git",
+  "commit": "df24f9428e38740256a410b983003a478e72a7c0",
+  "archive_url": "https://codeload.github.com/nxp-imx/linux-imx/tar.gz/df24f9428e38740256a410b983003a478e72a7c0",
+  "archive_sha256": "e4e12915ae72d2b5b87f7e6d97dd9b1063a62234f0234d954a6ae2564dbc0f31",
+  "patches": [
+    "patches/0001-pcie-handoff.patch",
+    "patches/0002-dpaa2-mac-phy-devres.patch",
+    "patches/0003-vntb.patch",
+    "patches/0004-ntb-transport.patch"
+  ],
+  "hardware_evidence": [
+    "board-lx2160a-rev2",
+    "board-pcie5-x8-endpoint",
+    "x200-pcie-persistent-linux-publication-design",
+    "x200-dual-rate-native18-design"
+  ]
+}

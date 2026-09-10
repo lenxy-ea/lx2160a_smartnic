@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "distribution": "debian",
+  "suite": "trixie",
+  "architecture": "arm64",
+  "mirror": "https://deb.debian.org/debian",
+  "repository_snapshot_pinned": false,
+  "byte_reproducible": false,
+  "hostname": "x200",
+  "root_account": "locked",
+  "ssh_authentication": "explicit-operator-public-key",
+  "network_configuration": "explicit-site-configuration",
+  "boot_profile": "x200-s1_12-s2_05-s3_02-v1"
+}

@@ -1,0 +1,449 @@
+/* X200 DPAA2 layout: board_profile_id=x200-s1_12-s2_05-s3_02-v1 */
+/* hardware-evidence-v1.json: x200-mc-layout-unassigned-objects
+ * Define exactly the objects assigned below; orphan DPIO/DPCON definitions
+ * caused MC layout processing errors on the measured native18 boot.
+ */
+/dts-v1/;
+
+/ {
+	rhinelab,board-profile-id = "x200-s1_12-s2_05-s3_02-v1";
+	dpl-version = <0x0a>;
+
+	containers {
+
+		dprc@1 {
+			parent = "none";
+			options = "DPRC_CFG_OPT_SPAWN_ALLOWED", "DPRC_CFG_OPT_ALLOC_ALLOWED", "DPRC_CFG_OPT_IRQ_CFG_ALLOWED";
+
+			objects {
+
+				obj_set@dpni {
+					type = "dpni";
+					ids = <0x00 0x01 0x02 0x03>;
+				};
+
+				obj_set@dpmac {
+					type = "dpmac";
+					ids = <0x03 0x04 0x05 0x06>;
+				};
+
+				obj_set@dpbp {
+					type = "dpbp";
+					ids = <0x00 0x01 0x02 0x03>;
+				};
+
+				obj_set@dpio {
+					type = "dpio";
+					ids = <0x00 0x01 0x02 0x03 0x04 0x05 0x06 0x07 0x08 0x09>;
+				};
+
+				obj_set@dpmcp {
+					type = "dpmcp";
+					ids = <0x01 0x02 0x03 0x04 0x05 0x06 0x07 0x08 0x09 0x0a 0x0b 0x0c 0x0d 0x0e 0x0f 0x10 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 0x1f 0x20 0x21 0x22 0x23>;
+				};
+
+				obj_set@dpcon {
+					type = "dpcon";
+					ids = <0x00 0x01 0x02 0x03 0x04 0x05 0x06 0x07 0x08 0x09 0x0a 0x0b 0x0c 0x0d 0x0e 0x0f 0x10 0x11 0x12 0x13 0x14 0x15 0x16 0x17 0x18 0x19 0x1a 0x1b 0x1c 0x1d 0x1e 0x1f 0x20 0x21 0x22 0x23 0x24 0x25 0x26 0x27>;
+				};
+
+				obj@800 {
+					obj_name = "dprtc@0";
+				};
+			};
+		};
+	};
+
+	objects {
+
+		dpni@0 {
+			options = "DPNI_OPT_HAS_KEY_MASKING";
+			num_queues = <0x0a>;
+			num_tcs = <0x01>;
+		};
+
+		dpni@1 {
+			options = "DPNI_OPT_HAS_KEY_MASKING";
+			num_queues = <0x0a>;
+			num_tcs = <0x01>;
+		};
+
+		dpni@2 {
+			options = "DPNI_OPT_HAS_KEY_MASKING";
+			num_queues = <0x0a>;
+			num_tcs = <0x01>;
+		};
+
+		dpni@3 {
+			options = "DPNI_OPT_HAS_KEY_MASKING";
+			num_queues = <0x0a>;
+			num_tcs = <0x01>;
+		};
+
+		dpmac@3 {
+		};
+
+		dpmac@4 {
+		};
+
+		dpmac@5 {
+		};
+
+		dpmac@6 {
+		};
+
+		dpbp@0 {
+		};
+
+		dpbp@1 {
+		};
+
+		dpbp@2 {
+		};
+
+		dpbp@3 {
+		};
+
+		dpio@0 {
+			channel_mode = "DPIO_LOCAL_CHANNEL";
+			num_priorities = <0x08>;
+		};
+
+		dpio@1 {
+			channel_mode = "DPIO_LOCAL_CHANNEL";
+			num_priorities = <0x08>;
+		};
+
+		dpio@2 {
+			channel_mode = "DPIO_LOCAL_CHANNEL";
+			num_priorities = <0x08>;
+		};
+
+		dpio@3 {
+			channel_mode = "DPIO_LOCAL_CHANNEL";
+			num_priorities = <0x08>;
+		};
+
+		dpio@4 {
+			channel_mode = "DPIO_LOCAL_CHANNEL";
+			num_priorities = <0x08>;
+		};
+
+		dpio@5 {
+			channel_mode = "DPIO_LOCAL_CHANNEL";
+			num_priorities = <0x08>;
+		};
+
+		dpio@6 {
+			channel_mode = "DPIO_LOCAL_CHANNEL";
+			num_priorities = <0x08>;
+		};
+
+		dpio@7 {
+			channel_mode = "DPIO_LOCAL_CHANNEL";
+			num_priorities = <0x08>;
+		};
+
+		dpio@8 {
+			channel_mode = "DPIO_LOCAL_CHANNEL";
+			num_priorities = <0x08>;
+		};
+
+		dpio@9 {
+			channel_mode = "DPIO_LOCAL_CHANNEL";
+			num_priorities = <0x08>;
+		};
+
+		dpmcp@1 {
+		};
+
+		dpmcp@2 {
+		};
+
+		dpmcp@3 {
+		};
+
+		dpmcp@4 {
+		};
+
+		dpmcp@5 {
+		};
+
+		dpmcp@6 {
+		};
+
+		dpmcp@7 {
+		};
+
+		dpmcp@8 {
+		};
+
+		dpmcp@9 {
+		};
+
+		dpmcp@10 {
+		};
+
+		dpmcp@11 {
+		};
+
+		dpmcp@12 {
+		};
+
+		dpmcp@13 {
+		};
+
+		dpmcp@14 {
+		};
+
+		dpmcp@15 {
+		};
+
+		dpmcp@16 {
+		};
+
+		dpmcp@17 {
+		};
+
+		dpmcp@18 {
+		};
+
+		dpmcp@19 {
+		};
+
+		dpmcp@20 {
+		};
+
+		dpmcp@21 {
+		};
+
+		dpmcp@22 {
+		};
+
+		dpmcp@23 {
+		};
+
+		dpmcp@24 {
+		};
+
+		dpmcp@25 {
+		};
+
+		dpmcp@26 {
+		};
+
+		dpmcp@27 {
+		};
+
+		dpmcp@28 {
+		};
+
+		dpmcp@29 {
+		};
+
+		dpmcp@30 {
+		};
+
+		dpmcp@31 {
+		};
+
+		dpmcp@32 {
+		};
+
+		dpmcp@33 {
+		};
+
+		dpmcp@34 {
+		};
+
+		dpmcp@35 {
+		};
+
+		dpcon@0 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@1 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@2 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@3 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@4 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@5 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@6 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@7 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@8 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@9 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@10 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@11 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@12 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@13 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@14 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@15 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@16 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@17 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@18 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@19 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@20 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@21 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@22 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@23 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@24 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@25 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@26 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@27 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@28 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@29 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@30 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@31 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@32 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@33 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@34 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@35 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@36 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@37 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@38 {
+			num_priorities = <0x02>;
+		};
+
+		dpcon@39 {
+			num_priorities = <0x02>;
+		};
+
+		dprtc@0 {
+			compatible = "fsl,dprtc";
+		};
+	};
+
+	connections {
+
+		connection@1 {
+			endpoint1 = "dpni@0";
+			endpoint2 = "dpmac@6";
+		};
+
+		connection@2 {
+			endpoint1 = "dpni@1";
+			endpoint2 = "dpmac@5";
+		};
+
+		connection@3 {
+			endpoint1 = "dpni@2";
+			endpoint2 = "dpmac@3";
+		};
+
+		connection@4 {
+			endpoint1 = "dpni@3";
+			endpoint2 = "dpmac@4";
+		};
+	};
+};

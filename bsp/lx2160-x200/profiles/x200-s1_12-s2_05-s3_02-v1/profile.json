@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "board_profile_id": "x200-s1_12-s2_05-s3_02-v1",
+  "board": "lx2160-x200",
+  "status": "development",
+  "deployment_allowed": false,
+  "purpose": "Current SmartNIC configuration: S1 protocol18, S2 protocol5 PCIe3 Gen3 x4, S3 protocol2 PCIe5 endpoint x8.",
+  "sources": {
+    "rcw": "rcw/lx2160-x200.rcw",
+    "dpc": "dpc/x200.dpc.dts",
+    "dpl": "dpl/x200.dpl.dts",
+    "dtb": "linux/fsl-lx2160a-x200.dts"
+  },
+  "evidence_registry": "../../hardware-evidence-v1.json",
+  "evidence_bindings": {
+    "rcw_clock_pinmux_and_serdes2": [
+      "x200-rcw-clock-pinmux-s2-s3",
+      "x200-serdes2-gen3-design",
+      "x200-rcw-configuration"
+    ],
+    "serdes3_pcie5_x8": [
+      "x200-rcw-clock-pinmux-s2-s3",
+      "board-pcie5-x8-endpoint"
+    ],
+    "pcie5_pbi": [
+      "x200-pcie5-pbi-sequence"
+    ],
+    "ddr": [
+      "x200-bl2-ddr-contract",
+      "board-ddr-16g-training",
+      "board-ddr-two-full-spd",
+      "board-ddr3200-reset-and-memory"
+    ],
+    "flash": [
+      "two-independent-16mib-flashes",
+      "board-w25q128-geometry"
+    ],
+    "datapath": [
+      "x200-datapath-port-order",
+      "x200-mc-layout-unassigned-objects",
+      "x200-dual-rate-native18-design",
+      "x200-pcs-mdio-timing-2500khz"
+    ],
+    "boot_rng": [
+      "x200-caam-rng-instantiated"
+    ],
+    "sata": [
+      "x200-sata0-only"
+    ],
+    "i2c3": [
+      "x200-dtb-i2c3-description",
+      "board-i2c3-read-probes",
+      "x200-no-board-eeprom-storage"
+    ],
+    "board_controller": [
+      "x200-machxo3-controller",
+      "x200-machxo3-channel-switch",
+      "x200-spiepld-write-frame"
+    ],
+    "usb": [
+      "unrouted-soc-usb"
+    ],
+    "serdes1_rx_gain": [
+      "x200-rx-auto-startup-default",
+      "x200-dual-rate-native18-design"
+    ],
+    "dual_rate": [
+      "x200-dual-rate-native18-design"
+    ],
+    "serdes2_pcie3": [
+      "x200-serdes2-gen3-design",
+      "board-lx2160a-rev2"
+    ]
+  },
+  "serdes": {
+    "s1": {
+      "source_value": 18,
+      "profile_hex": "0x12",
+      "function": "DPMAC3/4 XFI; DPMAC5/6 CAUI; lanes0..3 unexposed XFI",
+      "rx_gain_k2": "automatic",
+      "rx_auto_lanes": [
+        4,
+        5
+      ]
+    },
+    "s2": {
+      "source_value": 5,
+      "profile_hex": "0x05",
+      "function": "PCIe3 x4 Gen3 target plus SATA1/2/3/4 lanes; only board SATA0 exposed",
+      "max_link_speed": 3
+    },
+    "s3": {
+      "source_value": 2,
+      "profile_hex": "0x02",
+      "function": "PCIe5 x8 endpoint; PCIe6 disabled"
+    }
+  },
+  "ethernet": {
+    "ports": [
+      {
+        "dpmac": 3,
+        "interface": "DPMAC_ETH_IF_XFI",
+        "link_type": "MAC_LINK_TYPE_PHY"
+      },
+      {
+        "dpmac": 4,
+        "interface": "DPMAC_ETH_IF_XFI",
+        "link_type": "MAC_LINK_TYPE_PHY"
+      },
+      {
+        "dpmac": 5,
+        "interface": "DPMAC_ETH_IF_25G_AUI",
+        "link_type": "MAC_LINK_TYPE_PHY"
+      },
+      {
+        "dpmac": 6,
+        "interface": "DPMAC_ETH_IF_25G_AUI",
+        "link_type": "MAC_LINK_TYPE_PHY"
+      }
+    ],
+    "dpni_to_dpmac": {
+      "dpni@0": "dpmac@6",
+      "dpni@1": "dpmac@5",
+      "dpni@2": "dpmac@3",
+      "dpni@3": "dpmac@4"
+    }
+  },
+  "pcie": [
+    {
+      "controller": 3,
+      "mode": "root-complex",
+      "lanes": 4,
+      "max_link_speed": 3
+    },
+    {
+      "controller": 4,
+      "mode": "disabled",
+      "lanes": 0
+    },
+    {
+      "controller": 5,
+      "mode": "endpoint",
+      "lanes": 8
+    },
+    {
+      "controller": 6,
+      "mode": "disabled",
+      "lanes": 0
+    }
+  ],
+  "flash": {
+    "bank_count": 2,
+    "bank_capacity": "0x01000000",
+    "addressing": "independent-bank-local",
+    "concatenated": false
+  },
+  "build_constraints": {
+    "bl2_offset": "0x00009000",
+    "terminal_bl2_blockcopy_owner": "tf-a-create-pbl",
+    "pcie5_x8_pbi_contract": "x200-pex5-ep-v1",
+    "pcie6_ccsr_access_allowed": false,
+    "fixed_build_user": "builder",
+    "fixed_build_host": "x200"
+  },
+  "deployment_gates": [
+    {
+      "id": "serdes2-gen3-target",
+      "state": "open",
+      "requirement": "Read both root and FPGA LnkCap/LnkCap2/LnkSta/LnkCtl2; verify actual x4 rate, stable AER, SATA0 and PCIe5 management. Gen3 acceptance needs both ends at 8 GT/s x4."
+    },
+    {
+      "id": "reliability-qualification",
+      "state": "open",
+      "requirement": "Cold power, sustained load, all cages and peer transitions remain unqualified."
+    }
+  ],
+  "target_qualified": false,
+  "ddr_mt_s": 3200,
+  "reliability_qualified": false
+}

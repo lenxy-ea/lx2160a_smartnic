@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "board_profile_id": "x200-s1_12-s2_05-s3_02-v1",
+  "firmware_variant": "native18-s2-gen3",
+  "manifest_sequence": 1,
+  "boot_phase": "native",
+  "profile": "bsp/lx2160-x200/profiles/x200-s1_12-s2_05-s3_02-v1",
+  "layout": "bsp/lx2160-x200/flash-layout/flash-layout-v1.json",
+  "sdk_source_lock": "bsp/lx2160-x200/flexbuild/sdk-source-lock.json",
+  "build_inputs": "bsp/lx2160-x200/firmware/inputs-v1.json",
+  "build_entry": "bsp/lx2160-x200/firmware/build.py",
+  "toolchain_container": "localhost/x200-toolchain:1",
+  "toolchain_recipe": "bsp/lx2160-x200/firmware/Containerfile",
+  "target_qualified": false
+}

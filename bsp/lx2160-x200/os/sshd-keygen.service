@@ -1,0 +1,10 @@
+[Unit]
+Description=Generate missing X200 SSH host keys before sshd
+Before=ssh.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/ssh-keygen -A
+
+[Install]
+WantedBy=ssh.service

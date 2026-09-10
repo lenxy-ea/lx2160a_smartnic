@@ -1,0 +1,126 @@
+--- a/drivers/pci/controller/dwc/pci-layerscape-ep.c
++++ b/drivers/pci/controller/dwc/pci-layerscape-ep.c
+@@ -36,6 +36,7 @@
+ 
+ struct ls_pcie_ep_drvdata {
+ 	u32				func_offset;
++	bool				x200_handoff;
+ 	const struct dw_pcie_ep_ops	*ops;
+ 	const struct dw_pcie_ops	*dw_pcie_ops;
+ };
+@@ -68,6 +69,39 @@
+ 	else
+ 		iowrite32(value, pci->dbi_base + offset);
+ }
++
++/* X200 diagnostic ownership: host removes both bootstrap PFs before boot.
++ * CFG_READY is withdrawn during register replacement, then published only
++ * after configfs has bound the real function. No hot-reset recovery contract.
++ * EPF polling starts at bind (no link notifications) and synchronous unlink
++ * drains it. Stop withdraws host visibility; it does not free the function.
++ */
++static void x200_ep_set_ready(struct ls_pcie_ep *pcie, bool ready)
++{
++	u32 cfg = ls_pcie_pf_lut_readl(pcie, PEX_PF0_CONFIG);
++
++	if (ready)
++		cfg |= PEX_PF0_CFG_READY;
++	else
++		cfg &= ~PEX_PF0_CFG_READY;
++	ls_pcie_pf_lut_writel(pcie, PEX_PF0_CONFIG, cfg);
++}
++
++static int x200_ep_start(struct dw_pcie *pci)
++{
++	x200_ep_set_ready(to_ls_pcie_ep(pci), true);
++	return 0;
++}
++
++static void x200_ep_stop(struct dw_pcie *pci)
++{
++	x200_ep_set_ready(to_ls_pcie_ep(pci), false);
++}
++
++static const struct dw_pcie_ops x200_ep_dw_ops = {
++	.start_link = x200_ep_start,
++	.stop_link = x200_ep_stop,
++};
+ 
+ static irqreturn_t ls_pcie_ep_event_handler(int irq, void *dev_id)
+ {
+@@ -96,6 +130,9 @@
+ 		dw_pcie_writel_dbi(pci, offset + PCI_EXP_LNKCAP, pcie->lnkcap);
+ 		dw_pcie_dbi_ro_wr_dis(pci);
+ 
++		if (pcie->drvdata->x200_handoff)
++			return IRQ_HANDLED;
++
+ 		cfg = ls_pcie_pf_lut_readl(pcie, PEX_PF0_CONFIG);
+ 		cfg |= PEX_PF0_CFG_READY;
+ 		ls_pcie_pf_lut_writel(pcie, PEX_PF0_CONFIG, cfg);
+@@ -104,7 +141,8 @@
+ 		dev_dbg(pci->dev, "Link up\n");
+ 	} else if (val & PEX_PF0_PME_MES_DR_LDD) {
+ 		dev_dbg(pci->dev, "Link down\n");
+-		dw_pcie_ep_linkdown(&pci->ep);
++		if (!pcie->drvdata->x200_handoff)
++			dw_pcie_ep_linkdown(&pci->ep);
+ 	} else if (val & PEX_PF0_PME_MES_DR_HRD) {
+ 		dev_dbg(pci->dev, "Hot reset\n");
+ 	}
+@@ -214,7 +252,15 @@
+ 	.ops = &ls_pcie_ep_ops,
+ };
+ 
++static const struct ls_pcie_ep_drvdata x200_ep_drvdata = {
++	.func_offset = 0x8000,
++	.ops = &ls_pcie_ep_ops,
++	.dw_pcie_ops = &x200_ep_dw_ops,
++	.x200_handoff = true,
++};
++
+ static const struct of_device_id ls_pcie_ep_of_match[] = {
++	{ .compatible = "rhinelab,x200-pcie-ep-diagnostic", .data = &x200_ep_drvdata },
+ 	{ .compatible = "fsl,ls1028a-pcie-ep", .data = &ls1_ep_drvdata },
+ 	{ .compatible = "fsl,ls1046a-pcie-ep", .data = &ls1_ep_drvdata },
+ 	{ .compatible = "fsl,ls1088a-pcie-ep", .data = &ls2_ep_drvdata },
+@@ -254,7 +300,8 @@
+ 	ls_epc->bar[BAR_3].type = BAR_RESERVED;
+ 	ls_epc->bar[BAR_4].only_64bit = true;
+ 	ls_epc->bar[BAR_5].type = BAR_RESERVED;
+-	ls_epc->linkup_notifier = true;
++	/* Cold diagnostic binding may follow an already-up bootloader link. */
++	ls_epc->linkup_notifier = !pcie->drvdata->x200_handoff;
+ 
+ 	pcie->pci = pci;
+ 	pcie->ls_epc = ls_epc;
+@@ -274,6 +321,9 @@
+ 
+ 	offset = dw_pcie_find_capability(pci, PCI_CAP_ID_EXP);
+ 	pcie->lnkcap = dw_pcie_readl_dbi(pci, offset + PCI_EXP_LNKCAP);
++
++	if (pcie->drvdata->x200_handoff)
++		x200_ep_set_ready(pcie, false);
+ 
+ 	ret = dw_pcie_ep_init(&pci->ep);
+ 	if (ret)
+--- a/drivers/pci/endpoint/functions/pci-epf-test.c
++++ b/drivers/pci/endpoint/functions/pci-epf-test.c
+@@ -787,7 +787,7 @@
+ {
+ 	struct pci_epf_test *epf_test = epf_get_drvdata(epf);
+ 
+-	cancel_delayed_work(&epf_test->cmd_handler);
++	cancel_delayed_work_sync(&epf_test->cmd_handler);
+ 	pci_epf_test_clean_dma_chan(epf_test);
+ 	pci_epf_test_clear_bar(epf);
+ }
+@@ -919,7 +919,7 @@
+ 	struct pci_epf_test *epf_test = epf_get_drvdata(epf);
+ 	struct pci_epc *epc = epf->epc;
+ 
+-	cancel_delayed_work(&epf_test->cmd_handler);
++	cancel_delayed_work_sync(&epf_test->cmd_handler);
+ 	if (epc->init_complete) {
+ 		pci_epf_test_clean_dma_chan(epf_test);
+ 		pci_epf_test_clear_bar(epf);

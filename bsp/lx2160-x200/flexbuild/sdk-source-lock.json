@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "purpose": "Board-neutral pinned NXP Debian SDK inputs",
+  "distribution": {
+    "name": "NXP Debian Linux SDK",
+    "debian_version": "13",
+    "debian_codename": "trixie",
+    "sdk_version": "lsdk2606"
+  },
+  "flexbuild": {
+    "url": "https://github.com/nxp/flexbuild.git",
+    "tag": "LSDK-26.06_DEBIAN-13_LF-6.12.49",
+    "commit": "fde434ad2a29386e6e97dec0c072308048951de5",
+    "default_tree": "build/vendor/nxp-flexbuild-LSDK-26.06",
+    "tracked_input_sha256": {
+      "docker/debian/Dockerfile": "33119a38c677a270f894b1f63fe715dee4aabf338069cded3a78441aca9e5791",
+      "configs/sdk.yml": "f3a6c3a4990b314068114d7511bb8ebedeac29c8543c884663b44776cd79e701"
+    }
+  },
+  "container": {
+    "base_image": "debian:trixie",
+    "base_image_index_digest": "sha256:f324c7ff54321e8d9c588493a20244965938ce0aa50bbd1022d38010e9ffc4b1",
+    "image_tag": "localhost/x200-toolchain:1"
+  },
+  "build_environment": {
+    "KBUILD_BUILD_USER": "builder",
+    "KBUILD_BUILD_HOST": "x200",
+    "TZ": "UTC"
+  },
+  "components": {
+    "atf": {
+      "url": "https://github.com/nxp-imx/imx-atf.git",
+      "upstream_ref": "lf-6.12.49-2.2.0",
+      "commit": "a266ff458c2526a6474036a5c6648be6fdc54fe3"
+    },
+    "uboot": {
+      "url": "https://github.com/nxp-imx/uboot-imx.git",
+      "upstream_ref": "lf-6.12.49-2.2.0",
+      "commit": "4ddbad60eff308a5b356fb9ab8734ac382ddd692"
+    },
+    "rcw": {
+      "url": "https://github.com/nxp-qoriq/rcw.git",
+      "upstream_ref": "lf-6.12.49-2.2.0",
+      "commit": "82fa0c6d03b00dc84b6a64ba91f42c35762dd903"
+    },
+    "linux": {
+      "url": "https://github.com/nxp-imx/linux-imx.git",
+      "upstream_ref": "lf-6.12.49-2.2.0",
+      "commit": "df24f9428e38740256a410b983003a478e72a7c0"
+    },
+    "mc_utils": {
+      "url": "https://github.com/nxp-qoriq/mc-utils.git",
+      "upstream_ref": "mc_release_10.40.0",
+      "commit": "a61a0dd60a35f72ee966009f486c698b28d94d90"
+    },
+    "restool": {
+      "url": "https://github.com/nxp-qoriq/restool.git",
+      "upstream_ref": "lf-6.12.49-2.2.0",
+      "commit": "df31aaa46b77e3918f893ca08b1e63871ae880b6"
+    },
+    "mc_bin": {
+      "url": "https://github.com/nxp-qoriq/qoriq-mc-binary.git",
+      "upstream_ref": "mc_release_10.40.0",
+      "commit": "258dd3a59457163fc21f6055f7b893ca94ce642f",
+      "lx2160a_itb": {
+        "api_major": 10,
+        "api_minor": 40,
+        "path": "lx216xa/mc_lx2160a_10.40.0.itb",
+        "sha256": "f7a30e9b007bcd7c608f584c62059dfb47eac04f12ea8f5a9c5ae34d515e0dc1"
+      }
+    },
+    "ddr_phy_bin": {
+      "url": "https://github.com/nxp-qoriq/ddr-phy-binary.git",
+      "upstream_ref": "1dd5f83",
+      "commit": "1dd5f83191c1d0de34df1dca18b93b40fdbe18f7"
+    }
+  }
+}

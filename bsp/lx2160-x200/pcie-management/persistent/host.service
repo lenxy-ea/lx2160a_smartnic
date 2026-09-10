@@ -1,0 +1,21 @@
+[Unit]
+Description=X200 qualified PCIe management host
+After=NetworkManager.service firewalld.service network-online.target
+Wants=network-online.target
+Requires=NetworkManager.service firewalld.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=notify
+NotifyAccess=main
+ExecStart=/usr/bin/python3 /usr/local/lib/x200-pcie-management/host_service.py --config /etc/x200/management.json
+RemainAfterExit=yes
+TimeoutStartSec=660
+Restart=no
+RestartForceExitStatus=75
+RestartSec=30
+# Stop/restart never unloads modules or removes PCI functions. Peer quiescence
+# and independent host/card reset recovery are separate qualified operations.
+
+[Install]
+WantedBy=multi-user.target

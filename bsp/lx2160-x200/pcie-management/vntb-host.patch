@@ -1,0 +1,387 @@
+--- a/ntb_hw_epf.c
++++ b/ntb_hw_epf.c
+@@ -43,8 +43,8 @@
+ #define NTB_EPF_DB_DATA(n)	(0x34 + (n) * 4)
+ #define NTB_EPF_DB_OFFSET(n)	(0xB4 + (n) * 4)
+ 
+-#define NTB_EPF_MIN_DB_COUNT	3
+-#define NTB_EPF_MAX_DB_COUNT	31
++#define NTB_EPF_MIN_DB_COUNT	1
++#define NTB_EPF_MAX_DB_COUNT	1
+ 
+ #define NTB_EPF_COMMAND_TIMEOUT	1000 /* 1 Sec */
+ 
+@@ -79,7 +79,8 @@
+ 	unsigned int self_spad;
+ 	unsigned int peer_spad;
+ 
+-	int db_val;
++	atomic_t db_val;
++	bool command_failed;
+ 	u64 db_valid_mask;
+ };
+ 
+@@ -96,7 +97,7 @@
+ 	enum pci_barno mw_bar;
+ };
+ 
+-static int ntb_epf_send_command(struct ntb_epf_dev *ndev, u32 command,
++static int ntb_epf_send_command_locked(struct ntb_epf_dev *ndev, u32 command,
+ 				u32 argument)
+ {
+ 	ktime_t timeout;
+@@ -104,7 +105,9 @@
+ 	int ret = 0;
+ 	u32 status;
+ 
+-	mutex_lock(&ndev->cmd_lock);
++	if (ndev->command_failed)
++		return -EIO;
++	writew(0, ndev->ctrl_reg + NTB_EPF_CMD_STATUS);
+ 	writel(argument, ndev->ctrl_reg + NTB_EPF_ARGUMENT);
+ 	writel(command, ndev->ctrl_reg + NTB_EPF_COMMAND);
+ 
+@@ -121,7 +124,8 @@
+ 		if (status == COMMAND_STATUS_OK)
+ 			break;
+ 
+-		if (WARN_ON(timedout)) {
++		if (timedout) {
++			ndev->command_failed = true;
+ 			ret = -ETIMEDOUT;
+ 			break;
+ 		}
+@@ -130,8 +134,19 @@
+ 	}
+ 
+ 	writew(0, ndev->ctrl_reg + NTB_EPF_CMD_STATUS);
++
++
++	return ret;
++}
++
++static int ntb_epf_send_command(struct ntb_epf_dev *ndev, u32 command,
++                                u32 argument)
++{
++	int ret;
++
++	mutex_lock(&ndev->cmd_lock);
++	ret = ntb_epf_send_command_locked(ndev, command, argument);
+ 	mutex_unlock(&ndev->cmd_lock);
+-
+ 	return ret;
+ }
+ 
+@@ -139,12 +154,12 @@
+ {
+ 	struct device *dev = ndev->dev;
+ 
+-	if (idx < 0 || idx > ndev->mw_count) {
++	if (idx < 0 || idx >= ndev->mw_count) {
+ 		dev_err(dev, "Unsupported Memory Window index %d\n", idx);
+ 		return -EINVAL;
+ 	}
+ 
+-	return idx + 2;
++	return ndev->mw_bar + idx;
+ }
+ 
+ static int ntb_epf_mw_count(struct ntb_dev *ntb, int pidx)
+@@ -197,6 +212,10 @@
+ 	struct ntb_epf_dev *ndev = ntb_ndev(ntb);
+ 	u32 status;
+ 
++	if (speed)
++		*speed = NTB_SPEED_NONE;
++	if (width)
++		*width = NTB_WIDTH_NONE;
+ 	status = readw(ndev->ctrl_reg + NTB_EPF_LINK_STATUS);
+ 
+ 	return status & LINK_STATUS_UP;
+@@ -318,13 +337,14 @@
+ 	struct ntb_epf_dev *ndev = dev;
+ 	int irq_no;
+ 
+-	irq_no = irq - pci_irq_vector(ndev->ntb.pdev, 0);
+-	ndev->db_val = irq_no + 1;
+-
+-	if (irq_no == 0)
++	/* Linux IRQ numbers need not be contiguous. This contract has two. */
++	irq_no = irq == pci_irq_vector(ndev->ntb.pdev, 0) ? 0 : 1;
++	if (irq_no == 0) {
+ 		ntb_link_event(&ndev->ntb);
+-	else
+-		ntb_db_event(&ndev->ntb, irq_no);
++	} else {
++		atomic_or(BIT(0), &ndev->db_val);
++		ntb_db_event(&ndev->ntb, 0);
++	}
+ 
+ 	return IRQ_HANDLED;
+ }
+@@ -333,21 +353,15 @@
+ {
+ 	struct pci_dev *pdev = ndev->ntb.pdev;
+ 	struct device *dev = ndev->dev;
+-	u32 argument = MSIX_ENABLE;
++	u32 argument = 0;
+ 	int irq;
+ 	int ret;
+ 	int i;
+ 
+-	irq = pci_alloc_irq_vectors(pdev, msi_min, msi_max, PCI_IRQ_MSIX);
++	irq = pci_alloc_irq_vectors(pdev, msi_min, msi_max, PCI_IRQ_MSI);
+ 	if (irq < 0) {
+-		dev_dbg(dev, "Failed to get MSIX interrupts\n");
+-		irq = pci_alloc_irq_vectors(pdev, msi_min, msi_max,
+-					    PCI_IRQ_MSI);
+-		if (irq < 0) {
+-			dev_err(dev, "Failed to get MSI interrupts\n");
+-			return irq;
+-		}
+-		argument &= ~MSIX_ENABLE;
++		dev_err(dev, "Failed to get two MSI interrupts\n");
++		return irq;
+ 	}
+ 
+ 	for (i = 0; i < irq; i++) {
+@@ -371,10 +385,10 @@
+ 	return 0;
+ 
+ err_configure_db:
+-	for (i = 0; i < ndev->db_count + 1; i++)
++	i = irq;
++err_request_irq:
++	while (i--)
+ 		free_irq(pci_irq_vector(pdev, i), ndev);
+-
+-err_request_irq:
+ 	pci_free_irq_vectors(pdev);
+ 
+ 	return ret;
+@@ -406,14 +420,16 @@
+ 	struct ntb_epf_dev *ndev = ntb_ndev(ntb);
+ 	struct device *dev = ndev->dev;
+ 	resource_size_t mw_size;
+-	int bar;
++	int ret, bar;
+ 
+ 	if (pidx != NTB_DEF_PEER_IDX) {
+ 		dev_err(dev, "Unsupported Peer ID %d\n", pidx);
+ 		return -EINVAL;
+ 	}
+ 
+-	bar = idx + ndev->mw_bar;
++	bar = ntb_epf_mw_to_bar(ndev, idx);
++	if (bar < 0)
++		return bar;
+ 
+ 	mw_size = pci_resource_len(ntb->pdev, bar);
+ 
+@@ -423,13 +439,14 @@
+ 		return -EINVAL;
+ 	}
+ 
++	mutex_lock(&ndev->cmd_lock);
+ 	writel(lower_32_bits(addr), ndev->ctrl_reg + NTB_EPF_LOWER_ADDR);
+ 	writel(upper_32_bits(addr), ndev->ctrl_reg + NTB_EPF_UPPER_ADDR);
+ 	writel(lower_32_bits(size), ndev->ctrl_reg + NTB_EPF_LOWER_SIZE);
+ 	writel(upper_32_bits(size), ndev->ctrl_reg + NTB_EPF_UPPER_SIZE);
+-	ntb_epf_send_command(ndev, CMD_CONFIGURE_MW, idx);
+-
+-	return 0;
++	ret = ntb_epf_send_command_locked(ndev, CMD_CONFIGURE_MW, idx);
++	mutex_unlock(&ndev->cmd_lock);
++	return ret;
+ }
+ 
+ static int ntb_epf_mw_clear_trans(struct ntb_dev *ntb, int pidx, int idx)
+@@ -438,7 +455,9 @@
+ 	struct device *dev = ndev->dev;
+ 	int ret = 0;
+ 
+-	ntb_epf_send_command(ndev, CMD_TEARDOWN_MW, idx);
++	if (pidx != NTB_DEF_PEER_IDX || ntb_epf_mw_to_bar(ndev, idx) < 0)
++		return -EINVAL;
++	ret = ntb_epf_send_command(ndev, CMD_TEARDOWN_MW, idx);
+ 	if (ret)
+ 		dev_err(dev, "Failed to teardown memory window\n");
+ 
+@@ -455,7 +474,12 @@
+ 	if (idx == 0)
+ 		offset = readl(ndev->ctrl_reg + NTB_EPF_MW1_OFFSET);
+ 
+-	bar = idx + ndev->mw_bar;
++	bar = ntb_epf_mw_to_bar(ndev, idx);
++	if (bar < 0)
++		return bar;
++
++	if (offset >= pci_resource_len(ndev->ntb.pdev, bar))
++		return -EINVAL;
+ 
+ 	if (base)
+ 		*base = pci_resource_start(ndev->ntb.pdev, bar) + offset;
+@@ -469,13 +493,13 @@
+ static int ntb_epf_peer_db_set(struct ntb_dev *ntb, u64 db_bits)
+ {
+ 	struct ntb_epf_dev *ndev = ntb_ndev(ntb);
+-	u32 interrupt_num = ffs(db_bits) + 1;
++	u32 interrupt_num = 0;
+ 	struct device *dev = ndev->dev;
+ 	u32 db_entry_size;
+ 	u32 db_offset;
+ 	u32 db_data;
+ 
+-	if (interrupt_num > ndev->db_count) {
++	if (!db_bits || (db_bits & ~ndev->db_valid_mask)) {
+ 		dev_err(dev, "DB interrupt %d greater than Max Supported %d\n",
+ 			interrupt_num, ndev->db_count);
+ 		return -EINVAL;
+@@ -495,7 +519,7 @@
+ {
+ 	struct ntb_epf_dev *ndev = ntb_ndev(ntb);
+ 
+-	return ndev->db_val;
++	return atomic_read(&ndev->db_val);
+ }
+ 
+ static int ntb_epf_db_clear_mask(struct ntb_dev *ntb, u64 db_bits)
+@@ -507,7 +531,7 @@
+ {
+ 	struct ntb_epf_dev *ndev = ntb_ndev(ntb);
+ 
+-	ndev->db_val = 0;
++	atomic_andnot((int)db_bits, &ndev->db_val);
+ 
+ 	return 0;
+ }
+@@ -548,19 +572,19 @@
+ 	struct device *dev = ndev->dev;
+ 	int ret;
+ 
+-	/* One Link interrupt and rest doorbell interrupt */
+-	ret = ntb_epf_init_isr(ndev, NTB_EPF_MIN_DB_COUNT + 1,
+-			       NTB_EPF_MAX_DB_COUNT + 1);
+-	if (ret) {
+-		dev_err(dev, "Failed to init ISR\n");
+-		return ret;
+-	}
+-
+-	ndev->db_valid_mask = BIT_ULL(ndev->db_count) - 1;
+ 	ndev->mw_count = readl(ndev->ctrl_reg + NTB_EPF_MW_COUNT);
+ 	ndev->spad_count = readl(ndev->ctrl_reg + NTB_EPF_SPAD_COUNT);
+-
+-	return 0;
++	if (ndev->mw_count != 1 || ndev->spad_count != 64 ||
++	    readl(ndev->ctrl_reg + NTB_EPF_MW1_OFFSET) != 0 ||
++	    readl(ndev->ctrl_reg + NTB_EPF_DB_DATA(0)) != 1 ||
++	    readl(ndev->ctrl_reg + NTB_EPF_DB_OFFSET(0)) != 4)
++		return -EINVAL;
++	ndev->db_valid_mask = BIT_ULL(0);
++	/* Vector 0 is link; vector 1 is doorbell bit 0. MSI only. */
++	ret = ntb_epf_init_isr(ndev, 2, 2);
++	if (ret)
++		dev_err(dev, "Failed to init ISR\n");
++	return ret;
+ }
+ 
+ static int ntb_epf_init_pci(struct ntb_epf_dev *ndev,
+@@ -581,9 +605,19 @@
+ 	ret = pci_request_regions(pdev, "ntb");
+ 	if (ret) {
+ 		dev_err(dev, "Cannot obtain PCI resources\n");
++		goto err_pci_disable;
++	}
++
++	if (!(pci_resource_flags(pdev, BAR_0) & IORESOURCE_MEM) ||
++	    pci_resource_len(pdev, BAR_0) != SZ_4K ||
++	    !(pci_resource_flags(pdev, BAR_2) & IORESOURCE_MEM_64) ||
++	    pci_resource_len(pdev, BAR_2) != SZ_4K ||
++	    !(pci_resource_flags(pdev, BAR_4) & IORESOURCE_MEM_64) ||
++	    pci_resource_len(pdev, BAR_4) != SZ_1M ||
++	    pci_resource_len(pdev, BAR_1)) {
++		ret = -EINVAL;
+ 		goto err_pci_regions;
+ 	}
+-
+ 	pci_set_master(pdev);
+ 
+ 	ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+@@ -611,7 +645,13 @@
+ 	} else {
+ 		spad_sz = 4 * readl(ndev->ctrl_reg + NTB_EPF_SPAD_COUNT);
+ 		spad_off = readl(ndev->ctrl_reg + NTB_EPF_SPAD_OFFSET);
+-		ndev->peer_spad_reg = ndev->ctrl_reg + spad_off  + spad_sz;
++		if (spad_sz != 256 || spad_off < 0x134 ||
++		    spad_off > pci_resource_len(pdev, ndev->ctrl_reg_bar) ||
++		    2 * spad_sz > pci_resource_len(pdev, ndev->ctrl_reg_bar) - spad_off) {
++			ret = -EINVAL;
++			goto err_pci_regions;
++		}
++		ndev->peer_spad_reg = ndev->ctrl_reg + spad_off + spad_sz;
+ 	}
+ 
+ 	ndev->db_reg = pci_iomap(pdev, ndev->db_reg_bar, 0);
+@@ -623,6 +663,14 @@
+ 	return 0;
+ 
+ err_pci_regions:
++	if (ndev->db_reg)
++		pci_iounmap(pdev, ndev->db_reg);
++	if (ndev->peer_spad_reg_bar && ndev->peer_spad_reg)
++		pci_iounmap(pdev, ndev->peer_spad_reg);
++	if (ndev->ctrl_reg)
++		pci_iounmap(pdev, ndev->ctrl_reg);
++	pci_release_regions(pdev);
++err_pci_disable:
+ 	pci_disable_device(pdev);
+ 
+ err_pci_enable:
+@@ -636,7 +684,8 @@
+ 	struct pci_dev *pdev = ndev->ntb.pdev;
+ 
+ 	pci_iounmap(pdev, ndev->ctrl_reg);
+-	pci_iounmap(pdev, ndev->peer_spad_reg);
++	if (ndev->peer_spad_reg_bar)
++		pci_iounmap(pdev, ndev->peer_spad_reg);
+ 	pci_iounmap(pdev, ndev->db_reg);
+ 
+ 	pci_release_regions(pdev);
+@@ -730,14 +779,8 @@
+ 	ntb_epf_deinit_pci(ndev);
+ }
+ 
+-static const struct ntb_epf_data j721e_data = {
+-	.ctrl_reg_bar = BAR_0,
+-	.peer_spad_reg_bar = BAR_1,
+-	.db_reg_bar = BAR_2,
+-	.mw_bar = BAR_2,
+-};
+-
+-static const struct ntb_epf_data mx8_data = {
++/* Locally assigned development identity; alias only the vNTB protocol. */
++static const struct ntb_epf_data x200_data = {
+ 	.ctrl_reg_bar = BAR_0,
+ 	.peer_spad_reg_bar = BAR_0,
+ 	.db_reg_bar = BAR_2,
+@@ -746,17 +789,13 @@
+ 
+ static const struct pci_device_id ntb_epf_pci_tbl[] = {
+ 	{
+-		PCI_DEVICE(PCI_VENDOR_ID_TI, PCI_DEVICE_ID_TI_J721E),
++		PCI_DEVICE(PCI_VENDOR_ID_FREESCALE, 0xe200),
+ 		.class = PCI_CLASS_MEMORY_RAM << 8, .class_mask = 0xffff00,
+-		.driver_data = (kernel_ulong_t)&j721e_data,
+-	},
+-	{
+-		PCI_DEVICE(PCI_VENDOR_ID_FREESCALE, 0x0809),
+-		.class = PCI_CLASS_MEMORY_RAM << 8, .class_mask = 0xffff00,
+-		.driver_data = (kernel_ulong_t)&mx8_data,
++		.driver_data = (kernel_ulong_t)&x200_data,
+ 	},
+ 	{ },
+ };
++MODULE_DEVICE_TABLE(pci, ntb_epf_pci_tbl);
+ 
+ static struct pci_driver ntb_epf_pci_driver = {
+ 	.name		= KBUILD_MODNAME,

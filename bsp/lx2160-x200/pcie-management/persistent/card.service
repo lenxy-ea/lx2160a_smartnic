@@ -1,0 +1,15 @@
+[Unit]
+Description=X200 persistent PCIe management endpoint
+Requires=NetworkManager.service sys-kernel-config.mount
+After=NetworkManager.service sys-kernel-config.mount
+Before=ssh.service ssh.socket
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -B @BUNDLE@/card-runtime.py @BUNDLE@ @SHA256@
+RemainAfterExit=yes
+TimeoutStartSec=120
+# Deliberately no ExecStop: peer memory requires coordinated card-first quiesce.
+
+[Install]
+WantedBy=multi-user.target

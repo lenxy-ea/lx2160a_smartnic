@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# Read-only X200 DPAA2/25G diagnostic collector.
+set -u
+
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+exec 2>&1
+
+section()
+{
+	printf '\n===== %s =====\n' "$*"
+}
+
+run_optional()
+{
+	printf '+ '
+	printf '%q ' "$@"
+	printf '\n'
+	"$@"
+	status=$?
+	if (( status != 0 )); then
+		printf '[exit=%d]\n' "$status"
+	fi
+	return 0
+}
+
+if (( EUID != 0 )); then
+	printf 'WARNING: run as root for complete debugfs, kernel-log and MC output.\n'
+fi
+
+section "identity"
+run_optional date --utc --iso-8601=seconds
+run_optional uname -a
+run_optional hostnamectl
+run_optional cat /proc/cmdline
+if [[ -r /sys/firmware/devicetree/base/rhinelab,board-profile-id ]]; then
+	printf 'board-profile-id: '
+	tr -d '\000' </sys/firmware/devicetree/base/rhinelab,board-profile-id
+	printf '\n'
+fi
+
+section "systemd"
+run_optional systemctl is-system-running
+run_optional systemctl --failed --no-pager
+run_optional networkctl --no-pager
+
+section "DPAA2 Management Complex"
+run_optional restool --version
+run_optional restool --mc-version
+run_optional restool dprc list --full-path
+for device in /dev/dprc.*; do
+	[[ -e "$device" ]] || continue
+	run_optional restool dprc show "${device##*/}"
+done
+for id in 3 4 5 6; do
+	run_optional restool dpmac info "dpmac.${id}" --verbose
+done
+for id in 0 1 2 3; do
+	run_optional restool dpni info "dpni.${id}" --verbose
+done
+
+section "Linux network interfaces"
+run_optional ip -details -statistics link show
+for netdev in /sys/class/net/eth*; do
+	[[ -e "$netdev" ]] || continue
+	interface=${netdev##*/}
+	printf '\n--- %s ---\n' "$interface"
+	for attribute in address carrier operstate speed duplex mtu; do
+		if [[ -r "$netdev/$attribute" ]]; then
+			printf '%s: ' "$attribute"
+			cat "$netdev/$attribute"
+		fi
+	done
+	run_optional readlink -f "$netdev/device"
+	run_optional readlink -f "$netdev/device/driver"
+	run_optional ethtool -i "$interface"
+	run_optional ethtool "$interface"
+	run_optional ethtool --show-fec "$interface"
+	run_optional ethtool -m "$interface"
+	run_optional ethtool -S "$interface"
+done
+
+section "devlink"
+run_optional devlink dev show
+run_optional devlink port show
+for device in /sys/bus/fsl-mc/devices/dpni.*; do
+	[[ -e "$device" ]] || continue
+	run_optional devlink resource show "fsl-mc/${device##*/}"
+done
+run_optional devlink health show
+
+section "MDIO and PCS binding"
+run_optional find /sys/bus/mdio_bus/devices -maxdepth 1 -mindepth 1 -printf '%f -> %l\n'
+run_optional find /sys/bus/platform/drivers/fsl-fman_xmdio -maxdepth 1 -mindepth 1 -printf '%f -> %l\n'
+if [[ -r /sys/kernel/debug/devices_deferred ]]; then
+	run_optional cat /sys/kernel/debug/devices_deferred
+fi
+
+section "registered I2C devices"
+run_optional i2cdetect -l
+run_optional find /sys/bus/i2c/devices -maxdepth 1 -mindepth 1 -printf '%f -> %l\n'
+for adapter in /sys/bus/i2c/devices/i2c-*; do
+	[[ -e "$adapter" ]] || continue
+	printf '%s: ' "${adapter##*/}"
+	if [[ -r "$adapter/name" ]]; then
+		cat "$adapter/name"
+	else
+		printf '<name unavailable>\n'
+	fi
+done
+
+section "GPIO registration"
+if [[ -r /sys/kernel/debug/gpio ]]; then
+	run_optional cat /sys/kernel/debug/gpio
+else
+	printf '/sys/kernel/debug/gpio unavailable\n'
+fi
+
+section "PCIe"
+run_optional lspci -nnvv
+
+section "kernel DPAA2/PCS/link log"
+journalctl -k -b --no-pager |
+	grep -iE 'dpaa2|dpmac|dpni|fsl-mc|lynx|pcs|mdio|link|fec|sfp|i2c|pcie' || true
+
+section "platcfg service"
+run_optional journalctl -b -u platcfg.service --no-pager
+
+section "collector complete"
+printf 'Save this output and return it with the physical cage labels in use.\n'

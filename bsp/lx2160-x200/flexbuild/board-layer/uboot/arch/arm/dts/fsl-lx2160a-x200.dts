@@ -1,0 +1,161 @@
+// SPDX-License-Identifier: GPL-2.0+ OR X11
+/* X200: board_profile_id=x200-s1_12-s2_05-s3_02-v1 */
+
+/dts-v1/;
+
+#include "fsl-lx2160a.dtsi"
+
+/ {
+	model = "RhineLab LX2160A X200 SmartNIC";
+	compatible = "rhinelab,lx2160a-x200", "fsl,lx2160a";
+	rhinelab,board-profile-id = "x200-s1_12-s2_05-s3_02-v1";
+
+	aliases {
+		serial0 = &uart0;
+		spi0 = &fspi;
+		spi1 = &dspi2;
+	};
+
+	/* hardware-evidence-v1: x200-psci-smc-reset-contract */
+	psci {
+		compatible = "arm,psci-1.0", "arm,psci-0.2";
+		method = "smc";
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		pcie_ep_memory: pcie-ep-memory@94000000 {
+			reg = <0x0 0x94000000 0x0 0x00010000>;
+			no-map;
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+/* D11 and D12 are independent 16 MB devices, not one 32 MB device. */
+&fspi {
+	status = "okay";
+
+	flash_bank0: flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <50000000>;
+	};
+
+	flash_bank1: flash@1 {
+		compatible = "jedec,spi-nor";
+		reg = <1>;
+		spi-max-frequency = <50000000>;
+	};
+};
+
+/* hardware-evidence-v1.json: x200-no-board-eeprom-storage.
+ * The unverified board EEPROM is omitted; RTC remains available.
+ */
+&i2c3 {
+	status = "okay";
+
+	rtc@68 {
+		compatible = "st,m41t11";
+		reg = <0x68>;
+	};
+};
+
+&dspi2 {
+	spi-num-chipselects = <4>;
+	status = "okay";
+};
+
+/* Keep the driver available for inspection, but never arm it automatically. */
+&{/watchdog@23a0000} {
+	u-boot,noautostart;
+};
+
+&sata0 {
+	status = "okay";
+};
+
+/*
+ * hardware-evidence-v1.json: x200-dual-rate-native18-design
+ *
+ * Native18: DPMAC3/4 XFI; DPMAC5/6 CAUI. x200-dual-rate-native18-design
+ * There is no external PHY or retimer to describe here.  Enabling the MC
+ * DPMAC children lets U-Boot bind its DPAA2 Ethernet devices and avoids the
+ * misleading early "No ethernet found" report.
+ */
+&dpmac3 {
+	status = "okay";
+	phy-connection-type = "xgmii";
+};
+
+&dpmac4 {
+	status = "okay";
+	phy-connection-type = "xgmii";
+};
+
+&dpmac5 {
+	status = "okay";
+	phy-connection-type = "25g-aui";
+};
+
+&dpmac6 {
+	status = "okay";
+	phy-connection-type = "25g-aui";
+};
+
+/* X200 exposes no SoC USB connector; keep both USB blocks quiescent. */
+&usb0 { status = "disabled"; };
+&usb1 { status = "disabled"; };
+
+/* PCIe3 root complex and the separate host-facing PCIe5 endpoint. */
+&pcie1 { status = "disabled"; };
+&pcie2 { status = "disabled"; };
+/* hardware-evidence-v1.json: x200-serdes2-gen3-design.
+ * Generic Rev2 DWC resources consumed by pcie_layerscape_rc.c.
+ * RC enumeration also supplies Linux requester-ID/MSI/IOMMU fixups.
+ */
+&pcie3 {
+	compatible = "fsl,ls-pcie";
+	reg = <0x00 0x03600000 0x0 0x00080000>,
+	      <0x00 0x03680000 0x0 0x00040000>,
+	      <0x00 0x036c0000 0x0 0x00040000>,
+	      <0x90 0x00000000 0x0 0x00002000>;
+	reg-names = "regs", "lut", "ctrl", "config";
+	num-lanes = <4>;
+	max-link-speed = <3>;
+	status = "okay";
+};
+&pcie4 { status = "disabled"; };
+/*
+ * hardware-evidence-v1.json: board-lx2160a-rev2,
+ * board-pcie5-x8-endpoint, x200-pcie-persistent-linux-publication-design.
+ * Generic LX2160A Rev2 register interfaces, not an RDB board description.
+ * DWC EP U-Boot resources are DBI index0, PF-control index1, named addr_space.
+ * The outbound CPU aperture is described but no outbound ATU is enabled.
+ */
+&pcie5 {
+	compatible = "fsl,lx2160ar2-pcie-ep";
+	reg = <0x00 0x03800000 0x0 0x00080000>,
+	      <0x00 0x038c0000 0x0 0x00040000>,
+	      <0xa0 0x00000000 0x8 0x00000000>;
+	reg-names = "regs", "pf_ctrl", "addr_space";
+	/delete-property/ device_type;
+	/delete-property/ bus-range;
+	/delete-property/ ranges;
+	/delete-property/ #address-cells;
+	/delete-property/ #size-cells;
+	memory-region = <&pcie_ep_memory>;
+	max-functions = <2>;
+	status = "okay";
+};
+&pcie6 { status = "disabled"; };

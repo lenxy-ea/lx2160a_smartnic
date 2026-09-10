@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "id": "x200-soc-derived-mac-v1",
+  "authority": "NXP factory UID, read only",
+  "uid_mmio": [
+    "0x01e8021c",
+    "0x01e80220"
+  ],
+  "register_byte_order": "little-endian",
+  "canonical_uid": "word0 big-endian bytes followed by word1 big-endian bytes",
+  "linux_nvmem_offset": "0x1c",
+  "linux_nvmem_length": 8,
+  "input_validation": "two equal reads; reject all-zero and all-ff UID",
+  "hash": "SHA-256",
+  "domain_hex": "783230302d6d61632d763100",
+  "input": "domain bytes followed by canonical UID bytes",
+  "output": "first 6 digest bytes; byte0=(byte0&0xfc)|2; byte5=(byte5&0xf8)|(DPMAC_ID-3)",
+  "dpmac_ids": [
+    3,
+    4,
+    5,
+    6
+  ],
+  "network_address_type": "locally administered unicast",
+  "environment_override": false,
+  "invalid_uid_policy": "reject Ethernet; no random address",
+  "production_oui_allocation": false
+}

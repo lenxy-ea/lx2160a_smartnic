@@ -1,0 +1,42 @@
+name: Validate source
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      full_build:
+        description: Build firmware, kernel, runtime and Debian SATA image
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: python3 tools/check_source.py --history
+      - run: make -C bsp/lx2160-x200 check test
+  build:
+    if: github.event_name == 'workflow_dispatch' && inputs.full_build
+    needs: source
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install host build tools
+        run: sudo apt-get update && sudo apt-get install -y podman make python3 kmod
+      - run: make -C bsp/lx2160-x200 toolchain
+      - run: make -C bsp/lx2160-x200 firmware JOBS=2
+      - run: make -C bsp/lx2160-x200 kernel JOBS=2
+      - name: Package sample runtime configuration
+        run: make -C bsp/lx2160-x200 manual-rate runtime CONFIG="$GITHUB_WORKSPACE/bsp/lx2160-x200/pcie-management/config.example.json"
+      - run: make -C bsp/lx2160-x200 bootstrap rootfs sata
+      - name: Confirm source checkout is unchanged
+        run: git diff --exit-code

@@ -1,0 +1,24 @@
+{
+  "network": {
+    "network": "192.0.2.0/30",
+    "host_address": "192.0.2.1",
+    "card_address": "192.0.2.2",
+    "host_interface": "x200pcie",
+    "card_interface": "pcie0",
+    "uplink_interface": "uplink0",
+    "firewall_zone": "public",
+    "dns_server": "198.51.100.53"
+  },
+  "host": {
+    "parent_bdf": "0000:01:00.0",
+    "pf0_bdf": "0000:02:00.0"
+  },
+  "boot_update": {
+    "mtd_device": "/dev/mtd0",
+    "bank_label": "D11",
+    "spi_nor_sysfs": "/sys/bus/spi/devices/spi0.0/spi-nor",
+    "boot_script": "/boot/boot.scr",
+    "journal_source": "/dev/disk/by-uuid/REPLACE-WITH-ROOT-PARTITION",
+    "boot_source": "/dev/disk/by-uuid/REPLACE-WITH-BOOT-PARTITION"
+  }
+}

@@ -1,0 +1,10 @@
+/* X200: generic 16 MiB Winbond W25Q128 read geometry. */
+#elif defined(CONFIG_W25Q128)
+#define F_SECTOR_64K			0x10000U
+#define F_PAGE_256			0x100U
+#define F_SECTOR_4K			0x1000U
+#define F_FLASH_SIZE_BYTES		0x1000000U
+#define F_SECTOR_ERASE_SZ		F_SECTOR_64K
+#if CONFIG_FSPI_ERASE_4K
+#define F_SECTOR_ERASE_SZ		F_SECTOR_4K
+#endif

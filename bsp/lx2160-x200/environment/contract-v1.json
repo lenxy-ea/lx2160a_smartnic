@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "x200-redundant-environment-v1",
+  "backend": "redundant SPI NOR",
+  "spi_bus": 0,
+  "chip_select": 0,
+  "offsets": [
+    "0x500000",
+    "0x510000"
+  ],
+  "size_each": 65536,
+  "header": "CRC32 little-endian, then one flags byte",
+  "data_bytes": 65531,
+  "blank": "both complete reads are all ff; defaults without warning or writes",
+  "corrupt": "no valid CRC and some non-ff data; warn and use defaults; retain bytes",
+  "io_error": "explicit diagnostic; recover from a readable valid slot if available",
+  "save": "explicit env save only; write alternate slot, read-back compare, obsolete old flag and verify",
+  "initial_save_sequence": [
+    "primary",
+    "redundant"
+  ],
+  "automatic_save": false,
+  "identity_authority": "x200-soc-derived-mac-v1; environment is a mirror",
+  "user_preferences": [
+    "bootdelay",
+    "ipaddr",
+    "serverip",
+    "netmask",
+    "gatewayip",
+    "x200_extra_bootargs"
+  ],
+  "boot_policy": "reinstalled from firmware on every boot",
+  "generic_images": "both env slots ff",
+  "updates": "preserve runtime env; use exact pre-update runtime snapshot for old image digest"
+}

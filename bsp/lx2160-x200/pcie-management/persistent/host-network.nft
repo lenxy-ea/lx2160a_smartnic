@@ -1,0 +1,13 @@
+table ip x200_pcie_management {
+ chain forward_scope {
+  type filter hook forward priority -5; policy accept;
+  iifname "@HOST_INTERFACE@" ip saddr @CARD_ADDRESS@ oifname "@UPLINK_INTERFACE@" accept
+  oifname "@HOST_INTERFACE@" ip daddr @CARD_ADDRESS@ iifname "@UPLINK_INTERFACE@" ct state established,related accept
+  iifname "@HOST_INTERFACE@" drop
+  oifname "@HOST_INTERFACE@" drop
+ }
+ chain nat {
+  type nat hook postrouting priority srcnat; policy accept;
+  iifname "@HOST_INTERFACE@" ip saddr @CARD_ADDRESS@ oifname "@UPLINK_INTERFACE@" counter masquerade
+ }
+}

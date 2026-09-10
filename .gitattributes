@@ -1,0 +1,6 @@
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.patch text eol=lf
+# Unified patch context prefixes are data and must retain their whitespace.
+*.patch -whitespace

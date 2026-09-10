@@ -1,0 +1,66 @@
+/* X200 DPAA2 configuration: board_profile_id=x200-s1_12-s2_05-s3_02-v1 */
+/dts-v1/;
+
+/ {
+	rhinelab,board-profile-id = "x200-s1_12-s2_05-s3_02-v1";
+
+	resources {
+		icid_pools {
+			icid_pool@1 {
+				num = <0x64>;
+				base_icid = <0x00>;
+			};
+		};
+	};
+
+	mc_general {
+		log {
+			mode = "LOG_MODE_ON";
+			level = "LOG_LEVEL_WARNING";
+		};
+
+		console {
+			mode = "CONSOLE_MODE_OFF";
+			uart_id = <0x04>;
+			level = "LOG_LEVEL_WARNING";
+		};
+	};
+
+	controllers {
+		qbman {
+			wq_ch_conversion = <0x20>;
+		};
+	};
+
+	board_info {
+		ports {
+			mac@3 {
+				link_type = "MAC_LINK_TYPE_PHY";
+				enet_if = "DPMAC_ETH_IF_XFI";
+				pcs_autoneg = "on";
+				fec_mode = "none";
+			};
+
+			mac@4 {
+				link_type = "MAC_LINK_TYPE_PHY";
+				enet_if = "DPMAC_ETH_IF_XFI";
+				pcs_autoneg = "on";
+				fec_mode = "none";
+			};
+
+			mac@5 {
+				link_type = "MAC_LINK_TYPE_PHY";
+				enet_if = "DPMAC_ETH_IF_25G_AUI";
+				pcs_autoneg = "on";
+				fec_mode = "none";
+			};
+
+			mac@6 {
+				link_type = "MAC_LINK_TYPE_PHY";
+				enet_if = "DPMAC_ETH_IF_25G_AUI";
+				pcs_autoneg = "on";
+				fec_mode = "none";
+			};
+		};
+	};
+};

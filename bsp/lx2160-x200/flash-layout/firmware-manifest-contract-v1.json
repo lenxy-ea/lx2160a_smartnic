@@ -1,0 +1,79 @@
+{
+  "contract_id": "x200-firmware-manifest-v1",
+  "magic": "X200FW1",
+  "format_version": 1,
+  "slot_size": "0x00010000",
+  "slots": ["manifest-a", "manifest-b"],
+  "slot_encoding": {
+    "type": "x200-json-sha256-v1",
+    "header": "8-byte X200FW1\\0 magic, uint32-le format version, uint32-le JSON length",
+    "payload": "canonical compact ASCII JSON with sorted keys",
+    "trailer": "32-byte SHA-256 of the JSON payload",
+    "padding": "0xff to slot boundary"
+  },
+  "selection": {
+    "sequence_type": "uint64",
+    "select": "highest-valid-sequence",
+    "integrity": "sha256",
+    "signature_required_when_secure_boot_enabled": true,
+    "equal_sequence_tie_break": "lowest-offset-valid-slot"
+  },
+  "required_top_level_fields": [
+    "magic",
+    "format_version",
+    "sequence",
+    "board",
+    "board_profile_id",
+    "firmware_variant",
+    "components",
+    "build",
+    "security"
+  ],
+  "board_fields": [
+    "model",
+    "board_revision",
+    "compatible_mask"
+  ],
+  "required_components": [
+    "rcw",
+    "bl2",
+    "bl31",
+    "uboot",
+    "ddr_phy",
+    "mc",
+    "dpc",
+    "dpl",
+    "dtb"
+  ],
+  "component_common_fields": [
+    "version",
+    "offset",
+    "size",
+    "sha256"
+  ],
+  "profile_bound_components": ["rcw", "dpc", "dpl", "dtb"],
+  "profile_component_field": "board_profile_id",
+  "mc_extra_fields": ["api_major", "api_minor"],
+  "build_fields": [
+    "git_commit",
+    "timestamp_utc",
+    "toolchain",
+    "flexbuild_commit",
+    "sdk_source_lock_sha256",
+    "atf_commit",
+    "uboot_commit",
+    "linux_commit",
+    "build_user",
+    "build_host"
+  ],
+  "security_fields": [
+    "secure_boot_policy",
+    "signature_algorithm",
+    "signature"
+  ],
+  "forbidden_content": [
+    "private_signing_key",
+    "private_provisioning_key",
+    "plaintext_secret"
+  ]
+}

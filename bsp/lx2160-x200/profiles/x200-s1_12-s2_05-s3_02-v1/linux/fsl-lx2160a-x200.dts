@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/* X200 Linux description: board_profile_id=x200-s1_12-s2_05-s3_02-v1 */
+
+/dts-v1/;
+
+#include "fsl-lx2160a.dtsi"
+
+/ {
+	model = "RhineLab LX2160A X200 SmartNIC";
+	compatible = "rhinelab,lx2160a-x200", "fsl,lx2160a";
+	rhinelab,board-profile-id = "x200-s1_12-s2_05-s3_02-v1";
+
+	aliases {
+		/* Generic SEC era fixup resolves the crypto alias. */
+		crypto = &crypto;
+		serial0 = &uart0;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	/* Retained unused reservation: x200-pcie-persistent-linux-publication-design.
+	 * U-Boot leaves PCIe5 unpublished; Linux owns the runtime BAR layout.
+	 */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		pcie-ep-memory@94000000 {
+			reg = <0x0 0x94000000 0x0 0x00010000>;
+			no-map;
+		};
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+/* D11 and D12 are two independent 16 MB devices, never one 32 MB MTD. */
+&fspi {
+	status = "okay";
+
+	flash_bank0: flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <50000000>;
+	};
+
+	flash_bank1: flash@1 {
+		compatible = "jedec,spi-nor";
+		reg = <1>;
+		spi-max-frequency = <50000000>;
+	};
+};
+
+/* hardware-evidence-v1.json: x200-no-board-eeprom-storage.
+ * The unverified board EEPROM is omitted; RTC remains available.
+ */
+&i2c3 {
+	status = "okay";
+
+	rtc@68 {
+		compatible = "st,m41t11";
+		reg = <0x68>;
+	};
+};
+
+/* Slave identities are intentionally omitted until target wiring is traced. */
+&dspi2 {
+	spi-num-chipselects = <4>;
+	status = "okay";
+};
+
+/* X200 exposes only the first AHCI controller. */
+&sata0 {
+	status = "okay";
+};
+
+/* DPMAC3-6 use the SoC-internal Lynx PCS even without external PHYs.
+ * hardware-evidence-v1.json: x200-pcs-mdio-timing-2500khz.
+ * Request 2.5MHz for the PCS MDIO timing contract.
+ * Cage coverage and sustained line-rate operation require qualification.
+ */
+&pcs_mdio3 {
+	clock-frequency = <2500000>;
+	status = "okay";
+};
+
+&pcs_mdio4 {
+	clock-frequency = <2500000>;
+	status = "okay";
+};
+
+&pcs_mdio5 {
+	clock-frequency = <2500000>;
+	status = "okay";
+};
+
+&pcs_mdio6 {
+	clock-frequency = <2500000>;
+	status = "okay";
+};
+
+/* hardware-evidence-v1.json: x200-serdes2-gen3-design.
+ * LX2160A Rev2 uses the DWC ls2088a binding, not the Rev1 Mobiveil binding.
+ * The pinned U-Boot ft_pci_setup supplies PCIe3 MSI/IOMMU requester mappings.
+ * Gen3 is the requested ceiling; the FPGA capability is not yet measured.
+ */
+&pcie3 {
+	compatible = "fsl,ls2088a-pcie";
+	reg-names = "regs", "config";
+	/delete-property/ apio-wins;
+	/delete-property/ ppio-wins;
+	num-lanes = <4>;
+	max-link-speed = <3>;
+	linux,pci-domain = <0>;
+	status = "okay";
+};
+
+/* RC nodes share the register apertures and therefore stay disabled. */
+&pcie5 {
+	status = "disabled";
+};
+
+&pcie6 {
+	status = "disabled";
+};
+
+&{/soc} {
+	pcie_ep5: pcie-ep@3800000 {
+		compatible = "fsl,lx2160ar2-pcie-ep";
+		reg = <0x00 0x03800000 0x0 0x00100000>,
+		      <0xa0 0x00000000 0x8 0x00000000>;
+		reg-names = "regs", "addr_space";
+		interrupts = <GIC_SPI 128 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "pme";
+		num-ib-windows = <6>;
+		num-ob-windows = <8>;
+		num-lanes = <8>;
+		dma-coherent;
+		status = "okay";
+	};
+};
+
+/* hardware-evidence-v1.json: x200-dual-rate-native18-design */
+&dpmac3 {
+	status = "okay";
+	phys = <&serdes_1 7>;
+	phy-mode = "10gbase-r";
+	managed = "in-band-status";
+};
+
+/* hardware-evidence-v1.json: x200-dual-rate-native18-design */
+&dpmac4 {
+	status = "okay";
+	phys = <&serdes_1 6>;
+	phy-mode = "10gbase-r";
+	managed = "in-band-status";
+};
+
+/* hardware-evidence-v1.json: x200-dual-rate-native18-design */
+&dpmac5 {
+	status = "okay";
+	phys = <&serdes_1 5>;
+	phy-mode = "25gbase-r";
+	managed = "in-band-status";
+};
+
+/* hardware-evidence-v1.json: x200-dual-rate-native18-design */
+&dpmac6 {
+	status = "okay";
+	phys = <&serdes_1 4>;
+	phy-mode = "25gbase-r";
+	managed = "in-band-status";
+};

@@ -1,0 +1,99 @@
+/* hardware-evidence-v1.json: x200-serdes2-gen3-design; Gen3 link unqualified. */
+/* hardware-evidence-v1.json: x200-dual-rate-native18-design */
+/*
+ * X200 SmartNIC development RCW.
+ * board_profile_id=x200-s1_12-s2_05-s3_02-v1
+ *
+ * This source deliberately has no fixed PBI_LENGTH and no terminal BL2
+ * blockcopy. TF-A create_pbl owns the blockcopy from FlexSPI offset 0x9000 and
+ * derives its length from the newly built BL2 image.
+ *
+ * Clock and pin-mux values begin from the bit-exact board configuration. SerDes3
+ * retains the board PCIe5 x8 endpoint topology while SerDes1 changes
+ * to two XFI and two CAUI ports; mixed-rate function is measured; reliability remains unqualified.
+ */
+
+#include <../lx2160asi/lx2160a.rcwi>
+
+SYS_PLL_RAT=12
+MEM_PLL_CFG=3
+MEM_PLL_RAT=32
+MEM2_PLL_CFG=3
+MEM2_PLL_RAT=32
+CGA_PLL1_RAT=20
+CGA_PLL2_RAT=20
+CGB_PLL1_RAT=20
+CGB_PLL2_RAT=6
+HWA_CGA_M1_CLK_SEL=1
+HWA_CGB_M1_CLK_SEL=6
+BOOT_LOC=26
+SYSCLK_FREQ=0x258
+IIC5_PMUX=3
+SDHC1_BASE_PMUX=3
+SDHC1_DIR_PMUX=3
+SDHC2_DAT74_PMUX=2
+UART1_RTSCTS_PMUX=1
+UART2_RTSCTS_PMUX=1
+IRQ11_08_PMUX=1
+HOST_AGT_PEX5=1
+EC1_PMUX=1
+EC2_PMUX=1
+SDHC1_DS_PMUX=2
+SRDS_PLL_PD_PLL5=1
+SRDS_PRTCL_S1=18
+SRDS_INTRA_REF_CLK_S1=1
+SRDS_PLL_PD_PLL1=0
+SRDS_PLL_PD_PLL2=0
+SRDS_REFCLKF_DIS_S1=0
+SRDS_PRTCL_S2=5
+SRDS_PLL_PD_PLL3=0
+SRDS_PLL_PD_PLL4=0
+SRDS_PLL_REF_CLK_SEL_S2=0
+SRDS_INTRA_REF_CLK_S2=0
+SRDS_PRTCL_S3=2
+SRDS_REFCLKF_DIS_S3=1
+SRDS_PLL_REF_CLK_SEL_S1=2
+SRDS_DIV_PEX_S1=3
+SRDS_DIV_PEX_S2=1
+SRDS_DIV_PEX_S3=1
+
+/* Errata marker used by the NXP validation flow. */
+#include <../lx2160asi/scratchrw1.rcw>
+
+/* FlexSPI boot location. */
+#include <../lx2160asi/bootlocptr_nor.rcw>
+
+/* SATA controller workaround required by the S2=0x05 topology. */
+#include <../lx2160asi/a010554.rcw>
+
+/* Common Layerscape PBI commands. */
+#include <../lx2160asi/common.rcw>
+
+/* Board clock is 600 MHz, producing a 50 MHz FlexSPI clock at divisor 24. */
+#include <../lx2160asi/flexspi_divisor_24.rcw>
+
+/* PCIe3 Gen3 A009531/A008851 workarounds; PCIe4 is absent in S2=5. */
+#include <../lx2160asi/a009531_PEX3.rcw>
+#include <../lx2160asi/a008851_PEX3.rcw>
+
+/*
+ * Keep PCIe5 at the four-write sequence defined by the board contract.
+ * a008851_PEX5.rcw is a Gen3 RC workaround and adds lane preset writes which
+ * are deliberately excluded from this endpoint build.
+ */
+#include <../lx2160asi/a009531_PEX5.rcw>
+
+/* Remaining board PCIe5 x8 endpoint writes. */
+.pbi
+write 0x038008bc,0x00000001
+write 0x03800000,0x80c01957
+write 0x03800180,0x00000010
+.end
+
+#include <../lx2160asi/a050479.rcw>
+
+/* Native18: H/G use XFI; F/E retain the 25G EQ sequence. */
+#include <../lx2160asi/25g_eq_s1_lane_f.rcw>
+#include <../lx2160asi/25g_eq_s1_lane_e.rcw>
+
+#include <../lx2160asi/a050426.rcw>

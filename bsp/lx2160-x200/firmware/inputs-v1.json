@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "sdk_source_lock": "bsp/lx2160-x200/flexbuild/sdk-source-lock.json",
+  "artifacts": [
+    {
+      "name": "atf",
+      "path": "imx-atf-a266ff458c2526a6474036a5c6648be6fdc54fe3.tar.gz",
+      "url": "https://codeload.github.com/nxp-imx/imx-atf/tar.gz/a266ff458c2526a6474036a5c6648be6fdc54fe3",
+      "pin": "a266ff458c2526a6474036a5c6648be6fdc54fe3",
+      "sha256": "f61abc3fd3b08ee741c1bea917723e373186143c45f0aa3e61a3359619961a81",
+      "size": 10393682,
+      "archive_root": "imx-atf-a266ff458c2526a6474036a5c6648be6fdc54fe3"
+    },
+    {
+      "name": "rcw",
+      "path": "rcw-82fa0c6d03b00dc84b6a64ba91f42c35762dd903.tar.gz",
+      "url": "https://codeload.github.com/nxp-qoriq/rcw/tar.gz/82fa0c6d03b00dc84b6a64ba91f42c35762dd903",
+      "pin": "82fa0c6d03b00dc84b6a64ba91f42c35762dd903",
+      "sha256": "900e110f9cc4dd79efd9d399edf1bc80dfd0af7ac455d468569fb6cdf3db43fb",
+      "size": 119614,
+      "archive_root": "rcw-82fa0c6d03b00dc84b6a64ba91f42c35762dd903"
+    },
+    {
+      "name": "uboot",
+      "path": "uboot-imx-4ddbad60eff308a5b356fb9ab8734ac382ddd692.tar.gz",
+      "url": "https://codeload.github.com/nxp-imx/uboot-imx/tar.gz/4ddbad60eff308a5b356fb9ab8734ac382ddd692",
+      "pin": "4ddbad60eff308a5b356fb9ab8734ac382ddd692",
+      "sha256": "5a07275c9cd6c9a7159f85c9facdb77ceb7669f60a4ab353a106d3876e6bbf2d",
+      "size": 44986170,
+      "archive_root": "uboot-imx-4ddbad60eff308a5b356fb9ab8734ac382ddd692"
+    },
+    {
+      "name": "linux",
+      "path": "linux-imx-df24f9428e38740256a410b983003a478e72a7c0.tar.gz",
+      "url": "https://codeload.github.com/nxp-imx/linux-imx/tar.gz/df24f9428e38740256a410b983003a478e72a7c0",
+      "pin": "df24f9428e38740256a410b983003a478e72a7c0",
+      "sha256": "e4e12915ae72d2b5b87f7e6d97dd9b1063a62234f0234d954a6ae2564dbc0f31",
+      "size": 251615939,
+      "archive_root": "linux-imx-df24f9428e38740256a410b983003a478e72a7c0"
+    },
+    {
+      "path": "ddr-phy-binary/lx2160a/ddr4_pmu_train_imem.bin",
+      "url": "https://cdn.jsdelivr.net/gh/nxp-qoriq/ddr-phy-binary@1dd5f83191c1d0de34df1dca18b93b40fdbe18f7/lx2160a/ddr4_pmu_train_imem.bin",
+      "pin": "1dd5f83191c1d0de34df1dca18b93b40fdbe18f7",
+      "sha256": "2a5664023a23b343bf55e82f37e87a573b4a290b66e10e54f0cf05407cd0a4d2",
+      "size": 27568,
+      "name": "ddr4_pmu_train_imem"
+    },
+    {
+      "path": "ddr-phy-binary/lx2160a/ddr4_2d_pmu_train_imem.bin",
+      "url": "https://cdn.jsdelivr.net/gh/nxp-qoriq/ddr-phy-binary@1dd5f83191c1d0de34df1dca18b93b40fdbe18f7/lx2160a/ddr4_2d_pmu_train_imem.bin",
+      "pin": "1dd5f83191c1d0de34df1dca18b93b40fdbe18f7",
+      "sha256": "79bea7df72353925f5b6f0769764ef662214672b63e1b6fc0d1e343a9447463e",
+      "size": 28380,
+      "name": "ddr4_2d_pmu_train_imem"
+    },
+    {
+      "path": "ddr-phy-binary/lx2160a/ddr4_pmu_train_dmem.bin",
+      "url": "https://cdn.jsdelivr.net/gh/nxp-qoriq/ddr-phy-binary@1dd5f83191c1d0de34df1dca18b93b40fdbe18f7/lx2160a/ddr4_pmu_train_dmem.bin",
+      "pin": "1dd5f83191c1d0de34df1dca18b93b40fdbe18f7",
+      "sha256": "91611c012511bdbfa545490242a2052212c9276bcce19ec6c8f009d3143f9c4d",
+      "size": 1740,
+      "name": "ddr4_pmu_train_dmem"
+    },
+    {
+      "path": "ddr-phy-binary/lx2160a/ddr4_2d_pmu_train_dmem.bin",
+      "url": "https://cdn.jsdelivr.net/gh/nxp-qoriq/ddr-phy-binary@1dd5f83191c1d0de34df1dca18b93b40fdbe18f7/lx2160a/ddr4_2d_pmu_train_dmem.bin",
+      "pin": "1dd5f83191c1d0de34df1dca18b93b40fdbe18f7",
+      "sha256": "4e955d1b91f23fcc3af02b6d30741c76355bda4e8c2cef3779725c83dbe9c0e5",
+      "size": 1476,
+      "name": "ddr4_2d_pmu_train_dmem"
+    },
+    {
+      "path": "ddr-phy-binary/lx2160a/ddr4_rdimm_pmu_train_imem.bin",
+      "url": "https://cdn.jsdelivr.net/gh/nxp-qoriq/ddr-phy-binary@1dd5f83191c1d0de34df1dca18b93b40fdbe18f7/lx2160a/ddr4_rdimm_pmu_train_imem.bin",
+      "pin": "1dd5f83191c1d0de34df1dca18b93b40fdbe18f7",
+      "sha256": "80568ad101d7c7606d1b7320bf280706ba83a5d529e7138b6ed7c4703aac5a70",
+      "size": 29256,
+      "name": "ddr4_rdimm_pmu_train_imem"
+    },
+    {
+      "path": "ddr-phy-binary/lx2160a/ddr4_rdimm2d_pmu_train_imem.bin",
+      "url": "https://cdn.jsdelivr.net/gh/nxp-qoriq/ddr-phy-binary@1dd5f83191c1d0de34df1dca18b93b40fdbe18f7/lx2160a/ddr4_rdimm2d_pmu_train_imem.bin",
+      "pin": "1dd5f83191c1d0de34df1dca18b93b40fdbe18f7",
+      "sha256": "73e98d322e66415ec12bde94f0c379ed3e05ce0032b4f0f78b3c562ea4b0c456",
+      "size": 29860,
+      "name": "ddr4_rdimm2d_pmu_train_imem"
+    },
+    {
+      "path": "ddr-phy-binary/lx2160a/ddr4_rdimm_pmu_train_dmem.bin",
+      "url": "https://cdn.jsdelivr.net/gh/nxp-qoriq/ddr-phy-binary@1dd5f83191c1d0de34df1dca18b93b40fdbe18f7/lx2160a/ddr4_rdimm_pmu_train_dmem.bin",
+      "pin": "1dd5f83191c1d0de34df1dca18b93b40fdbe18f7",
+      "sha256": "8a3a069296cd4f216649232eda5c683db4c1b6d686e05e824064a90bcea3358f",
+      "size": 1808,
+      "name": "ddr4_rdimm_pmu_train_dmem"
+    },
+    {
+      "path": "ddr-phy-binary/lx2160a/ddr4_rdimm2d_pmu_train_dmem.bin",
+      "url": "https://cdn.jsdelivr.net/gh/nxp-qoriq/ddr-phy-binary@1dd5f83191c1d0de34df1dca18b93b40fdbe18f7/lx2160a/ddr4_rdimm2d_pmu_train_dmem.bin",
+      "pin": "1dd5f83191c1d0de34df1dca18b93b40fdbe18f7",
+      "sha256": "5999680ca94166e5ae6eb7e741179bfec44cf67951dc53f11b323548246a813f",
+      "size": 1536,
+      "name": "ddr4_rdimm2d_pmu_train_dmem"
+    },
+    {
+      "path": "qoriq-mc-binary/lx216xa/mc_lx2160a_10.40.0.itb",
+      "url": "https://cdn.jsdelivr.net/gh/nxp-qoriq/qoriq-mc-binary@258dd3a59457163fc21f6055f7b893ca94ce642f/lx216xa/mc_lx2160a_10.40.0.itb",
+      "pin": "258dd3a59457163fc21f6055f7b893ca94ce642f",
+      "sha256": "f7a30e9b007bcd7c608f584c62059dfb47eac04f12ea8f5a9c5ae34d515e0dc1",
+      "size": 1288908,
+      "name": "mc"
+    }
+  ]
+}

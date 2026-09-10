@@ -1,0 +1,751 @@
+{
+  "schema_version": 1,
+  "registry_id": "lx2160-x200-hardware-evidence-v1",
+  "board": "lx2160-x200",
+  "authority_policy": {
+    "board_authority": [
+      "target-measurement-or-observation",
+      "factory-image-or-board-binary",
+      "explicit-smartnic-design-delta"
+    ],
+    "generic_sources": "NXP sources describe SoC behavior and tool interfaces only; reference-board topology does not establish X200 board facts."
+  },
+  "limitations": [
+    "PCIe3 Gen3 x4 link has not been qualified.",
+    "Cold power, sustained load, cage coverage and peer transitions require qualification."
+  ],
+  "facts": {
+    "x200-bl2-ddr-contract": {
+      "authority": "factory-image-or-board-binary",
+      "implementation_use": "allowed-baseline",
+      "value": {
+        "controllers": 2,
+        "dimms_per_controller": 1,
+        "spd_addresses": [
+          "0x50",
+          "0x51"
+        ],
+        "vref_dimm": "0x24",
+        "vref_phy": "0x60",
+        "odt_ohms": 48,
+        "phy_tx_impedance_ohms": 48
+      }
+    },
+    "x200-bl31-system-reset-cpld-request": {
+      "authority": "factory-image-or-board-binary",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "cpld_register": "0x004c",
+        "cpld_value": "0x0099",
+        "dspi_base": "0x02120000",
+        "mmio_byte_order": "little-endian",
+        "chip_select": 0,
+        "mode": 3,
+        "bits_per_word": 8,
+        "ctar0": "0x3e000014",
+        "mcr_initial": "0x80ff0c00",
+        "input_clock_software_constant_hz": 150000000,
+        "clock_measured": false,
+        "requested_speed_hz": 5000000,
+        "nominal_divider": 32,
+        "nominal_sck_hz": 4687500,
+        "command_bytes": [
+          "0x20",
+          "0x00",
+          "0x4c"
+        ],
+        "continuous_cs_until_last_byte": true
+      }
+    },
+    "x200-datapath-port-order": {
+      "authority": "factory-image-or-board-binary",
+      "implementation_use": "allowed-baseline",
+      "value": {
+        "dpni@0": "dpmac@6",
+        "dpni@1": "dpmac@5",
+        "dpni@2": "dpmac@3",
+        "dpni@3": "dpmac@4"
+      }
+    },
+    "x200-dtb-i2c3-description": {
+      "authority": "factory-image-or-board-binary",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "controller": "i2c3",
+        "rtc": {
+          "compatible": "st,m41t11",
+          "address": "0x68"
+        }
+      }
+    },
+    "x200-machxo3-channel-switch": {
+      "authority": "factory-image-or-board-binary",
+      "implementation_use": "allowed-baseline",
+      "value": {
+        "register": "0x0066",
+        "write_value": "0x0001",
+        "x200_bsp_action": "one-shot boot acknowledgement"
+      }
+    },
+    "x200-pcie5-pbi-sequence": {
+      "authority": "explicit-smartnic-design-delta",
+      "implementation_use": "allowed-baseline",
+      "value": [
+        [
+          "0x03800098",
+          "0x00000000"
+        ],
+        [
+          "0x038008bc",
+          "0x00000001"
+        ],
+        [
+          "0x03800000",
+          "0x80c01957"
+        ],
+        [
+          "0x03800180",
+          "0x00000010"
+        ]
+      ]
+    },
+    "x200-rcw-clock-pinmux-s2-s3": {
+      "authority": "factory-image-or-board-binary",
+      "implementation_use": "allowed-baseline",
+      "value": {
+        "clocks_mhz": {
+          "cpu": 2000,
+          "platform": 600
+        }
+      }
+    },
+    "x200-sata0-only": {
+      "authority": "factory-image-or-board-binary",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "enabled_controller": "sata0",
+        "enabled_register_base": "0x03200000",
+        "disabled_controllers": [
+          "sata1",
+          "sata2",
+          "sata3"
+        ]
+      }
+    },
+    "x200-spiepld-write-frame": {
+      "authority": "factory-image-or-board-binary",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "write_data_length": 3,
+        "value_encoding": "big-endian-16-bit",
+        "trailing_byte": "address-low-byte"
+      }
+    },
+    "board-ddr-16g-training": {
+      "authority": "target-measurement-or-observation",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "capacity_gb": 16,
+        "rank_count": 1,
+        "bus_bits": 64,
+        "ecc": false
+      }
+    },
+    "board-ddr-two-full-spd": {
+      "authority": "target-measurement-or-observation",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "i2c_controller": "0x02000000",
+        "spd_addresses": [
+          "0x50",
+          "0x51"
+        ],
+        "capacity_mib_each": 8192,
+        "ranks_each": 1,
+        "device_width_bits": 8,
+        "primary_bus_width_bits": 64,
+        "ecc_extension_bits": 0,
+        "rated_mtps": 3200,
+        "nominal_voltage_volts": 1.2
+      }
+    },
+    "board-lx2160a-rev2": {
+      "authority": "target-measurement-or-observation",
+      "implementation_use": "allowed-baseline",
+      "value": {
+        "soc": "LX2160A",
+        "revision": "2.0",
+        "svr": "0x87361120"
+      }
+    },
+    "board-pcie5-x8-endpoint": {
+      "authority": "target-measurement-or-observation",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "controller": 5,
+        "mode": "endpoint",
+        "width": 8,
+        "speed": "Gen3",
+        "link_status_address": "0x03800082",
+        "link_status_width_bits": 16
+      }
+    },
+    "board-w25q128-geometry": {
+      "authority": "target-measurement-or-observation",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "part": "w25q128",
+        "capacity_bytes": 16777216,
+        "erase_bytes": 65536
+      }
+    },
+    "board-i2c3-read-probes": {
+      "authority": "target-measurement-or-observation",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "uboot_bus": 0,
+        "controller": "i2c@2030000"
+      }
+    },
+    "board-ddr3200-reset-and-memory": {
+      "authority": "target-measurement-or-observation",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "configured_mtps_each": [
+          3200,
+          3200
+        ],
+        "capacity_gb": 16,
+        "cas_latency": 22
+      }
+    },
+    "x200-mc-layout-unassigned-objects": {
+      "authority": "target-measurement-or-observation",
+      "implementation_use": "allowed-baseline",
+      "value": {
+        "allocated_objects": {
+          "dpni": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "dpmac": [
+            3,
+            4,
+            5,
+            6
+          ],
+          "dpbp": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "dpio": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          "dpmcp": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35
+          ],
+          "dpcon": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32,
+            33,
+            34,
+            35,
+            36,
+            37,
+            38,
+            39
+          ],
+          "dprtc": [
+            0
+          ]
+        }
+      }
+    },
+    "x200-no-board-eeprom-storage": {
+      "authority": "explicit-smartnic-design-delta",
+      "implementation_use": "allowed-baseline",
+      "value": {
+        "board_eeprom_storage": false,
+        "mac_authority": "x200-soc-derived-mac-v1",
+        "manufacturing_metadata_storage": "unimplemented; no replacement medium assigned",
+        "existing_persistence": [
+          "redundant NOR U-Boot environment",
+          "SATA Linux root filesystem"
+        ],
+        "eeprom_access_is_delivery_gate": false
+      }
+    },
+    "x200-caam-rng-instantiated": {
+      "authority": "target-measurement-or-observation",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "rng_version": {
+          "address": "0x08000eb4",
+          "value": "0x04040201"
+        },
+        "rdsta": {
+          "address": "0x080006c0",
+          "value": "0x40000033"
+        }
+      }
+    },
+    "x200-dual-rate-native18-design": {
+      "authority": "explicit-smartnic-design-delta",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "clock_selection": {
+          "SRDS_PRTCL_S1": 18,
+          "SRDS_INTRA_REF_CLK_S1": 1,
+          "SRDS_PLL_REF_CLK_SEL_S1": 2,
+          "SRDS_PLL_PD_PLL1": 0,
+          "SRDS_PLL_PD_PLL2": 0,
+          "SRDS_REFCLKF_DIS_S1": 0,
+          "SRDS_PRTCL_S3": 2,
+          "MEM_PLL_RAT": 32,
+          "MEM2_PLL_RAT": 32
+        },
+        "initial_ports": [
+          {
+            "mac": 3,
+            "lane": 7,
+            "linux_interface_at_baseline": "eth1",
+            "initial_mbps": 10000,
+            "phy_mode": "10gbase-r"
+          },
+          {
+            "mac": 4,
+            "lane": 6,
+            "linux_interface_at_baseline": "eth0",
+            "initial_mbps": 10000,
+            "phy_mode": "10gbase-r"
+          },
+          {
+            "mac": 5,
+            "lane": 5,
+            "linux_interface_at_baseline": "eth2",
+            "initial_mbps": 25000,
+            "phy_mode": "25gbase-r"
+          },
+          {
+            "mac": 6,
+            "lane": 4,
+            "linux_interface_at_baseline": "eth3",
+            "initial_mbps": 25000,
+            "phy_mode": "25gbase-r"
+          }
+        ],
+        "automatic_module_detection_qualified": false
+      }
+    },
+    "x200-machxo3-controller": {
+      "authority": "target-measurement-or-observation",
+      "implementation_use": "allowed-baseline",
+      "value": {
+        "part": "LCMXO3LF-6900C-6BG400C",
+        "transport": "DSPI2-CS0"
+      }
+    },
+    "x200-pcie-persistent-linux-publication-design": {
+      "authority": "explicit-smartnic-design-delta",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "ready_policy": "linux-publish-only",
+        "controller": 5,
+        "pf_bar_masks": "all-zero",
+        "enabled_inbound_windows": 0,
+        "enabled_outbound_windows": 0,
+        "boot_memory_access": false,
+        "reserved_memory": "existing 64 KiB reservation remains unused",
+        "linux_compatible": "rhinelab,x200-pcie-ep-diagnostic",
+        "runtime_identity": "1957:e200",
+        "runtime_layout": "v5 BAR0 control; BAR2 64-bit doorbell; BAR4 64-bit 1 MiB window; BAR1 excluded",
+        "boot_policy_env": "x200_pcie_boot_policy=linux-publish-only",
+        "bootarg": "x200_pcie_persistent=v1"
+      }
+    },
+    "x200-pcs-mdio-timing-2500khz": {
+      "authority": "target-measurement-or-observation",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "controllers": [
+          "0x8c0f000",
+          "0x8c13000",
+          "0x8c17000",
+          "0x8c1b000"
+        ],
+        "clock_frequency_request_hz": 2500000,
+        "pinned_linux_derived_divider": 119
+      }
+    },
+    "x200-psci-smc-reset-contract": {
+      "authority": "explicit-smartnic-design-delta",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "method": "smc",
+        "dt_node": "/psci",
+        "firmware_owner": "TF-A BL31",
+        "supported_reset": "PSCI_0_2_FN_SYSTEM_RESET",
+        "compatible": [
+          "arm,psci-1.0",
+          "arm,psci-0.2"
+        ],
+        "uboot_control_dt_required": true
+      }
+    },
+    "x200-reset-cpld-frame-design": {
+      "authority": "explicit-smartnic-design-delta",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "frame_hex": "20004c0099ff",
+        "last_byte": "0xff",
+        "owner": "X200 TF-A BL31 PSCI SYSTEM_RESET",
+        "polling": "bounded",
+        "firmware_on_transport_failure": "report error and stop; no alternate reset"
+      }
+    },
+    "x200-rx-auto-startup-default": {
+      "authority": "explicit-smartnic-design-delta",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "k2_mode": "automatic",
+        "k2_lanes4_to7": [
+          "automatic",
+          "automatic",
+          "automatic",
+          "automatic"
+        ],
+        "expected_recr0_lanes4_to7": [
+          "0x00000085",
+          "0x00000085",
+          "0x00000085",
+          "0x00000085"
+        ]
+      }
+    },
+    "x200-serdes2-gen3-design": {
+      "authority": "explicit-smartnic-design-delta",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "rcw": {
+          "SRDS_PRTCL_S2": 5,
+          "SRDS_DIV_PEX_S2": 1,
+          "SRDS_PLL_PD_PLL3": 0,
+          "SRDS_PLL_PD_PLL4": 0,
+          "SRDS_PLL_REF_CLK_SEL_S2": 0,
+          "SRDS_INTRA_REF_CLK_S2": 0
+        },
+        "pcie3": {
+          "mode": "root-complex",
+          "lanes": 4,
+          "max_link_speed": 3,
+          "linux_compatible": "fsl,ls2088a-pcie",
+          "linux_reg_names": [
+            "regs",
+            "config"
+          ],
+          "uboot_compatible": "fsl,ls-pcie",
+          "uboot_reg_names": [
+            "regs",
+            "lut",
+            "ctrl",
+            "config"
+          ],
+          "register_base": "0x03600000",
+          "config_base": "0x9000000000",
+          "pbi": [
+            "a009531_PEX3.rcw",
+            "a008851_PEX3.rcw"
+          ],
+          "gen3_measured": false,
+          "linux_pci_domain": 0
+        },
+        "sata": {
+          "enabled_controllers": [
+            0
+          ],
+          "extra_connectors_proven": false
+        }
+      }
+    },
+    "x200-soc-derived-mac-v1": {
+      "authority": "explicit-smartnic-design-delta",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "schema_version": 1,
+        "id": "x200-soc-derived-mac-v1",
+        "authority": "NXP factory UID, read only",
+        "uid_mmio": [
+          "0x01e8021c",
+          "0x01e80220"
+        ],
+        "register_byte_order": "little-endian",
+        "canonical_uid": "word0 big-endian bytes followed by word1 big-endian bytes",
+        "linux_nvmem_offset": "0x1c",
+        "linux_nvmem_length": 8,
+        "input_validation": "two equal reads; reject all-zero and all-ff UID",
+        "hash": "SHA-256",
+        "domain_hex": "783230302d6d61632d763100",
+        "input": "domain bytes followed by canonical UID bytes",
+        "output": "first 6 digest bytes; byte0=(byte0&0xfc)|2; byte5=(byte5&0xf8)|(DPMAC_ID-3)",
+        "dpmac_ids": [
+          3,
+          4,
+          5,
+          6
+        ],
+        "network_address_type": "locally administered unicast",
+        "environment_override": false,
+        "invalid_uid_policy": "reject Ethernet; no random address",
+        "production_oui_allocation": false
+      }
+    },
+    "x200-redundant-environment-v1": {
+      "authority": "explicit-smartnic-design-delta",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "schema_version": 1,
+        "id": "x200-redundant-environment-v1",
+        "backend": "redundant SPI NOR",
+        "spi_bus": 0,
+        "chip_select": 0,
+        "offsets": [
+          "0x500000",
+          "0x510000"
+        ],
+        "size_each": 65536,
+        "header": "CRC32 little-endian, then one flags byte",
+        "data_bytes": 65531,
+        "blank": "both complete reads are all ff; defaults without warning or writes",
+        "corrupt": "no valid CRC and some non-ff data; warn and use defaults; retain bytes",
+        "io_error": "explicit diagnostic; recover from a readable valid slot if available",
+        "save": "explicit env save only; write alternate slot, read-back compare, obsolete old flag and verify",
+        "initial_save_sequence": [
+          "primary",
+          "redundant"
+        ],
+        "automatic_save": false,
+        "identity_authority": "x200-soc-derived-mac-v1; environment is a mirror",
+        "user_preferences": [
+          "bootdelay",
+          "ipaddr",
+          "serverip",
+          "netmask",
+          "gatewayip",
+          "x200_extra_bootargs"
+        ],
+        "boot_policy": "reinstalled from firmware on every boot",
+        "generic_images": "both env slots ff",
+        "updates": "preserve runtime env; use exact pre-update runtime snapshot for old image digest"
+      }
+    },
+    "unrouted-soc-usb": {
+      "authority": "target-measurement-or-observation",
+      "implementation_use": "allowed-baseline",
+      "value": {
+        "soc_usb_connector": false,
+        "mini_usb_function": "rs232-console"
+      }
+    },
+    "two-independent-16mib-flashes": {
+      "authority": "target-measurement-or-observation",
+      "implementation_use": "allowed-baseline",
+      "value": {
+        "designators": [
+          "D11",
+          "D12"
+        ],
+        "capacity_bytes_each": 16777216,
+        "concatenated": false
+      }
+    },
+    "x200-rcw-configuration": {
+      "authority": "explicit-smartnic-design-delta",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "SYS_PLL_RAT": 12,
+        "MEM_PLL_CFG": 3,
+        "MEM_PLL_RAT": 32,
+        "MEM2_PLL_CFG": 3,
+        "MEM2_PLL_RAT": 32,
+        "CGA_PLL1_RAT": 20,
+        "CGA_PLL2_RAT": 20,
+        "CGB_PLL1_RAT": 20,
+        "CGB_PLL2_RAT": 6,
+        "HWA_CGA_M1_CLK_SEL": 1,
+        "HWA_CGB_M1_CLK_SEL": 6,
+        "BOOT_LOC": 26,
+        "SYSCLK_FREQ": 600,
+        "IIC5_PMUX": 3,
+        "SDHC1_BASE_PMUX": 3,
+        "SDHC1_DIR_PMUX": 3,
+        "SDHC2_DAT74_PMUX": 2,
+        "UART1_RTSCTS_PMUX": 1,
+        "UART2_RTSCTS_PMUX": 1,
+        "IRQ11_08_PMUX": 1,
+        "HOST_AGT_PEX5": 1,
+        "EC1_PMUX": 1,
+        "EC2_PMUX": 1,
+        "SDHC1_DS_PMUX": 2,
+        "SRDS_PLL_PD_PLL5": 1,
+        "SRDS_PRTCL_S1": 18,
+        "SRDS_INTRA_REF_CLK_S1": 1,
+        "SRDS_PLL_PD_PLL1": 0,
+        "SRDS_PLL_PD_PLL2": 0,
+        "SRDS_REFCLKF_DIS_S1": 0,
+        "SRDS_PRTCL_S2": 5,
+        "SRDS_PLL_PD_PLL3": 0,
+        "SRDS_PLL_PD_PLL4": 0,
+        "SRDS_PLL_REF_CLK_SEL_S2": 0,
+        "SRDS_INTRA_REF_CLK_S2": 0,
+        "SRDS_PRTCL_S3": 2,
+        "SRDS_REFCLKF_DIS_S3": 1,
+        "SRDS_PLL_REF_CLK_SEL_S1": 2,
+        "SRDS_DIV_PEX_S1": 3,
+        "SRDS_DIV_PEX_S2": 1,
+        "SRDS_DIV_PEX_S3": 1
+      }
+    },
+    "x200-sata-image-geometry": {
+      "authority": "explicit-smartnic-design-delta",
+      "implementation_use": "allowed-baseline",
+      "value": {
+        "sector_bytes": 512,
+        "disk_sectors": 62533296,
+        "boot_partition_bytes": 1073741824,
+        "partition_table": "GPT"
+      }
+    },
+    "x200-vntb-protocol-v1": {
+      "authority": "explicit-smartnic-design-delta",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "identity": "1957:e200",
+        "class": "0500",
+        "pf": 0,
+        "config_bar": 0,
+        "config_bytes": 4096,
+        "doorbell_bar": 2,
+        "doorbell_bytes": 4096,
+        "doorbell_bar_64bit": true,
+        "mw_bar": 4,
+        "mw_bar_64bit": true,
+        "mw_count": 1,
+        "mw_bytes": 1048576,
+        "scratchpads": 64,
+        "doorbells": 1,
+        "doorbell_offset": 4,
+        "doorbell_data": 1,
+        "msi_vectors": 2,
+        "link_msi_number": 1,
+        "doorbell_msi_number": 2,
+        "transport_parameters": {
+          "use_dma": 0,
+          "use_msi": 0,
+          "max_num_clients": 1
+        },
+        "reserved_bars": [
+          1,
+          3,
+          5
+        ]
+      },
+      "limitations": [
+        "Development PCI identity; no production PCI ID allocation.",
+        "Unattended restart and independent reset recovery require qualification."
+      ]
+    },
+    "x200-manual-rate-design": {
+      "authority": "explicit-smartnic-design-delta",
+      "implementation_use": "allowed-with-target-gate",
+      "value": {
+        "allowed_rates_mbps": [
+          10000,
+          25000
+        ],
+        "property": "phy-mode",
+        "mechanism": "OF changeset with userspace driver unbind/rebind",
+        "runtime_only": true,
+        "module_load_changes_hardware": false,
+        "repeated_mixed_rate_qualified": false
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+[Unit]
+Description=RhineLab X200 userspace boot identity
+After=local-fs.target
+Before=serial-getty@ttyAMA0.service
+
+[Service]
+Type=oneshot
+ExecStart=-/usr/local/sbin/x200-boot-banner
+RuntimeDirectory=x200-boot-banner
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+StandardOutput=journal+console
+StandardError=journal+console
+SyslogIdentifier=x200-boot-banner
+TimeoutStartSec=5s
+
+[Install]
+WantedBy=multi-user.target
