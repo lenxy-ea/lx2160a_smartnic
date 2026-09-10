@@ -34,3 +34,11 @@ are supplied separately and must not be committed.
 The root MIT license covers independent original tools and documentation where
 no other terms apply. TF-A, U-Boot, Linux and other upstream components retain
 their own licenses and copyright notices.
+
+## Offline validation
+
+The initial source delivery passed 92 synthetic/source tests and local builds
+of both NOR banks, Linux with 1,205 modules, host/card packages, Debian rootfs
+and the full SATA image. Checks covered firmware layout, protected regions,
+hardware fact bindings, module ABI, artifact integrity, GPT and filesystems.
+This is build validation; it does not add target hardware qualification.
