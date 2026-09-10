@@ -20,9 +20,9 @@ class CollectorTests(unittest.TestCase):
         self.device = self.root / self.bdf
         self.device.mkdir()
         (self.device / 'vendor').write_text('0x1957')
-        (self.device / 'device').write_text('0x80c0')
+        (self.device / 'device').write_text('0xe200')
         self.header = bytearray(64)
-        struct.pack_into('<HH', self.header, 0, 0x1957, 0x80c0)
+        struct.pack_into('<HH', self.header, 0, 0x1957, 0xe200)
         (self.device / 'config').write_bytes(self.header)
         (self.device / 'resource').write_text('0 0 0\n' * 6)
         self.boot = self.root / 'boot_id'
@@ -30,6 +30,11 @@ class CollectorTests(unittest.TestCase):
 
     def collect(self):
         return COLLECT.collect(self.bdf, self.root, self.boot)
+
+    def test_bootstrap_identity_is_not_a_runtime_endpoint(self):
+        (self.device / 'device').write_text('0x80c0')
+        with self.assertRaisesRegex(ValueError, 'expected X200'):
+            self.collect()
 
     def test_wrong_device_rejected(self):
         (self.device / 'device').write_text('0x1234')

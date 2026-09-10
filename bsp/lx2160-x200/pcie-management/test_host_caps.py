@@ -19,7 +19,7 @@ class CapabilityTests(unittest.TestCase):
         (self.procfs / '01').mkdir(parents=True)
         self.boot = self.root / 'boot_id'
         self.boot.write_text('synthetic-boot')
-        for function, product in ((0, 0x80c0), (1, 0x8d91)):
+        for function, product in ((0, 0xe200), (1, 0x8d91)):
             path = self.root / f'0000:01:00.{function}'
             path.mkdir()
             (path / 'vendor').write_text('0x1957')

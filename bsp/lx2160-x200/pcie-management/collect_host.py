@@ -24,9 +24,9 @@ def collect(bdf, sysfs=Path('/sys/bus/pci/devices'),
     device = sysfs / bdf
     vendor = int((device / 'vendor').read_text(), 16)
     product = int((device / 'device').read_text(), 16)
-    expected = {'0': 0x80c0, '1': 0x8d91}
+    expected = {'0': 0xe200, '1': 0x8d91}
     if vendor != 0x1957 or product != expected.get(bdf[-1]):
-        raise ValueError('device is not an expected X200 PF0 1957:80c0 or PF1 1957:8d91')
+        raise ValueError('device is not an expected X200 PF0 1957:e200 or PF1 1957:8d91')
     with (device / 'config').open('rb') as stream:
         header = stream.read(64)
     if len(header) != 64:
