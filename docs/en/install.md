@@ -36,6 +36,11 @@ provision an operator SSH public key. Root and password-based SSH login remain
 disabled. Missing SSH host keys are generated on the card's first boot, not
 distributed in the image.
 
+NetworkManager manages the four physical datapath ports through preinstalled
+`x200-l2-eth0` through `x200-l2-eth3` profiles. These profiles disable IPv4 and
+IPv6, preserve the SoC-derived MAC and supply the identity required by the
+manual-rate guard. They do not provide a management login address.
+
 The SATA output is a complete regular GPT disk image. Before a separate
 physical installation, identify the intended SATA device, confirm its capacity
 against the image manifest, and use an appropriate image-writing procedure.

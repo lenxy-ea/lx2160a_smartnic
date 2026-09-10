@@ -70,7 +70,7 @@ def foreign_execution(args):
     registry = Path('/proc/sys/fs/binfmt_misc')
     if os.geteuid() != 0 or not (registry / 'register').exists():
         raise ValueError('rootful Linux with mounted binfmt_misc is required for Debian builds')
-    emulator = args.out_dir / 'host-tools/aarch64-binfmt-P'
+    emulator = args.out_dir / ('host-tools/' + str(os.getpid())) / 'aarch64-binfmt-P'
     emulator.parent.mkdir(parents=True, exist_ok=True)
     run(prefix(args) + ['cp', '-L', '/usr/libexec/qemu-binfmt/aarch64-binfmt-P', emulator])
     specification = capture(prefix(args) + ['cat', '/usr/lib/binfmt.d/qemu-aarch64.conf']).split(':')
@@ -143,6 +143,13 @@ def verify_overlay(root, manifest_path):
 
 def verify_installed_modules(kernel):
     directory = ROOT / kernel['modules_dir']
+    for link_path in directory.rglob('*'):
+        if not link_path.is_symlink():
+            continue
+        key = {'build': 'output_dir', 'source': 'source_dir'}.get(link_path.name)
+        if (not key or link_path.parent != directory / 'lib/modules' / kernel['kernel_release']
+                or link_path.resolve() != (ROOT / kernel[key]).resolve()):
+            raise ValueError('unexpected symlink in installed kernel modules')
     recorded = {item['path']: item for item in kernel['artifacts']
                 if Path(item['path']).is_relative_to(Path(kernel['modules_dir']))}
     actual = {str(path.relative_to(ROOT)) for path in directory.rglob('*')
@@ -204,13 +211,24 @@ def build_restool(args, root):
     header = capture(prefix(args) + ['aarch64-linux-gnu-readelf', '-h', target])
     if 'AArch64' not in header:
         raise ValueError('restool is not an AArch64 binary')
-    version = capture(foreign(args, root, ['/usr/local/sbin/restool', '--version']))
+    # Upstream restool opens MC before handling --version, so verify its
+    # identity and runtime libraries statically during an offline build.
+    version = 'v2.4 (commit ' + pin['upstream_ref'] + ')'
+    if version not in capture(prefix(args) + ['strings', target]):
+        raise ValueError('restool release identity is missing')
+    needed = re.findall(r'Shared library: \[([^]]+)\]', capture(prefix(args) + ['aarch64-linux-gnu-readelf', '-d', target]))
+    if needed != ['libm.so.6', 'libc.so.6'] or any(not (root / 'usr/lib/aarch64-linux-gnu' / name).is_file() for name in needed):
+        raise ValueError('restool runtime libraries are missing or unexpected')
     return {'source_commit': pin['commit'], 'version': version, 'sha256': sha(target)}
 
 
 def build_rootfs(args):
     kernel = read_kernel_manifest(args.kernel_manifest)
-    base = read_manifest(args.out_dir / 'bootstrap-manifest.json')
+    base_manifest = args.bootstrap_manifest or args.out_dir / 'bootstrap-manifest.json'
+    base = read_manifest(base_manifest)
+    package_source = ROOT / base['artifacts'][1]['path']
+    if package_source.resolve() != (args.out_dir / 'packages.json').resolve():
+        shutil.copyfile(package_source, args.out_dir / 'packages.json')
     root = args.out_dir / 'rootfs'
     if root.exists():
         raise ValueError('rootfs output already exists; use a fresh --out-dir')
@@ -240,7 +258,21 @@ def build_rootfs(args):
     put(root, 'etc/apt/sources.list', f'deb {args.mirror or policy["mirror"]} trixie main\n'
         'deb https://security.debian.org/debian-security trixie-security main\n')
     put(root, 'etc/ssh/sshd_config.d/10-x200.conf', 'PermitRootLogin no\nPasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitEmptyPasswords no\n')
-    put(root, 'etc/NetworkManager/conf.d/10-x200-explicit-configuration.conf', '[main]\nno-auto-default=*\n')
+    put(root, 'etc/NetworkManager/conf.d/10-x200-explicit-configuration.conf',
+        '[main]\nno-auto-default=*\n\n[device-x200-l2]\nmatch-device=driver:fsl_dpaa2_eth\nmanaged=1\nignore-carrier=1\n')
+    # No-IP L2 profiles preserve the SoC-derived MAC and the manual-rate guard.
+    facts = json.loads((HERE.parent / 'hardware-evidence-v1.json').read_text())['facts']
+    ports = facts['x200-dual-rate-native18-design']['value']['initial_ports']
+    for item in ports:
+        port = item['linux_interface_at_baseline']
+        if not re.fullmatch(r'eth[0-9]+', port):
+            raise ValueError('invalid physical port name in hardware contract')
+        ident = uuid.uuid5(uuid.NAMESPACE_URL, 'rhinelab:x200:l2:' + port)
+        put(root, f'etc/NetworkManager/system-connections/x200-l2-{port}.nmconnection',
+            f'[connection]\nid=x200-l2-{port}\nuuid={ident}\ntype=ethernet\ninterface-name={port}\n'
+            'autoconnect=true\nautoconnect-priority=100\n\n[ethernet]\n\n[ipv4]\nmethod=disabled\n\n[ipv6]\nmethod=disabled\n', 0o600)
+    for unit in ('systemd-networkd.service', 'systemd-networkd.socket', 'systemd-networkd-wait-online.service'):
+        link(root, 'etc/systemd/system/' + unit, '/dev/null')
     put(root, 'etc/machine-id', '')
     for key in (root / 'etc/ssh').glob('ssh_host_*'):
         key.unlink()
@@ -253,7 +285,7 @@ def build_rootfs(args):
     link(root, 'etc/systemd/system/multi-user.target.wants/NetworkManager.service', '/usr/lib/systemd/system/NetworkManager.service')
     link(root, 'etc/systemd/system/default.target', '/usr/lib/systemd/system/multi-user.target')
     verify_installed_modules(kernel)
-    shutil.copytree(ROOT / kernel['modules_dir'] / 'lib/modules', root / 'usr/lib/modules', dirs_exist_ok=True)
+    shutil.copytree(ROOT / kernel['modules_dir'] / 'lib/modules', root / 'usr/lib/modules', dirs_exist_ok=True, symlinks=True)
     for module_link in ('build', 'source'):
         (root / 'usr/lib/modules' / kernel['kernel_release'] / module_link).unlink(missing_ok=True)
     run([sys.executable, HERE / 'boot-banner/install.py', '--root', root])
@@ -282,6 +314,9 @@ def build_rootfs(args):
                 'restool': restool, 'kernel_build_id': kernel['build_id'], 'kernel_release': kernel['kernel_release'],
                 'kernel_manifest_sha256': sha(args.kernel_manifest), 'rootfs_dir': str(root.relative_to(ROOT)),
                 'operator_account_provisioned': bool(args.authorized_key),
+                'operator_public_key_sha256': sha(args.authorized_key) if args.authorized_key else None,
+                'runtime_manifest_sha256': sha(args.runtime_manifest) if args.runtime_manifest else None,
+                'bootstrap_manifest_sha256': sha(base_manifest),
                 'artifacts': [artifact(archive), artifact(args.out_dir / 'packages.json')]}
     (args.out_dir / 'rootfs-manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     print(f'PASS: {args.out_dir / "rootfs-manifest.json"}')
@@ -349,12 +384,13 @@ def build_sata(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=['bootstrap', 'rootfs', 'sata'])
+    parser.add_argument('--bootstrap-manifest', type=Path, help='current Debian base producer manifest; defaults to out-dir/bootstrap-manifest.json')
     parser.add_argument('--kernel-manifest', type=Path, default=ROOT / 'build/kernel/manifest.json')
     parser.add_argument('--out-dir', type=Path, default=ROOT / 'build/os')
     parser.add_argument('--builder', default='localhost/x200-toolchain:1')
     parser.add_argument('--mirror', help='public Debian mirror URL')
     parser.add_argument('--authorized-key', type=Path, help='one operator SSH public key; absent means all accounts remain locked')
-    parser.add_argument('--user', default='operator')
+    parser.add_argument('--user', default='x200')
     parser.add_argument('--runtime-root', type=Path)
     parser.add_argument('--runtime-manifest', type=Path)
     parser.add_argument('--sectors', type=int, default=62533296, help='512-byte sectors in disk file; default is the X200 SATA contract')

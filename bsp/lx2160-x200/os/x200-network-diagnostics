@@ -122,8 +122,8 @@ section "kernel DPAA2/PCS/link log"
 journalctl -k -b --no-pager |
 	grep -iE 'dpaa2|dpmac|dpni|fsl-mc|lynx|pcs|mdio|link|fec|sfp|i2c|pcie' || true
 
-section "platcfg service"
-run_optional journalctl -b -u platcfg.service --no-pager
+section "X200 network services"
+run_optional journalctl -b -u x200-pcie-card.service -u NetworkManager.service --no-pager
 
 section "collector complete"
 printf 'Save this output and return it with the physical cage labels in use.\n'
