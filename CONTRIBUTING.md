@@ -64,6 +64,18 @@ The manually triggered full-build workflow also builds firmware, kernel,
 runtime and a Debian SATA image using sample configuration. It does not access
 hardware or upload build directories and binary artifacts.
 
+For the full workflow, supply a prepared, isolated Linux x86-64 runner label
+through `build_runner` (default `x200-builder`), with at least 80 GiB free disk,
+rootful Podman and passwordless sudo. Standard small hosted runners do not meet
+the disk requirement. Never attach private data or board access to that runner.
+Runner provisioning is separate from this source repository; the default
+push/PR checks use a standard GitHub-hosted runner.
+
 推送和拉取请求运行源码／历史检查及离线测试。手动触发的完整构建流程还会用
 示例配置构建固件、内核、运行服务与 Debian SATA 镜像，不访问硬件，也不上传
 构建目录或二进制产物。
+
+完整流程通过 `build_runner` 指定已准备好的独立 Linux x86-64 runner 标签
+（默认 `x200-builder`），需要至少 80 GiB 可用磁盘、rootful Podman 和免密码 sudo。
+标准小型托管 runner 不满足磁盘要求。不要向该 runner 提供私有数据或板卡访问。
+runner 部署独立于源码仓库；默认推送／拉取请求检查使用标准 GitHub 托管 runner。

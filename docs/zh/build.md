@@ -1,7 +1,12 @@
 # 构建
 
 使用 Linux x86-64 主机，安装 Git、GNU Make、Python 3（推荐 3.12）、运行源码
-测试所需的 C 编译器、Podman 和 `kmod` 工具（`modinfo`、`modprobe`）。建议预留
+测试所需的 C 编译器、OpenSSL 开发头文件与库、`patch`、`binutils`（`readelf`）、
+Podman 和 `kmod` 工具（`modinfo`、`modprobe`）。完整镜像
+流程在 root shell、root 所有的检出目录及 rootful Podman 环境中执行。ARM64
+Debian 软件包安装需要已挂载且可写的 `/proc/sys/fs/binfmt_misc`。构建程序创建
+名称唯一的临时 QEMU 处理器，结束时只移除自己创建的处理器，不修改主机其他
+处理器。容器不需要 privileged 模式。建议预留
 至少 80 GiB 空间，用于源码、内核模块、rootfs 和 32,017,047,552 字节的稀疏
 SATA 镜像。16 GiB 内存主机先使用 4 个编译任务，不要仅按 CPU 数量设置并发。
 
@@ -26,7 +31,8 @@ make -C bsp/lx2160-x200 kernel JOBS=4
 ABI 检查结果。即使 release 字符串相同，也不要混用其他构建的模块。
 
 输出目录必须是新目录。再次构建时设置新的 `FIRMWARE_OUT` 或 `KERNEL_OUT`；
-后续打包通过 `KERNEL_MANIFEST` 选择对应内核。下载缓存可以保留，使用时仍会
+后续打包继续使用相同的 `KERNEL_OUT`。`KERNEL_MANIFEST` 默认为该目录下的
+`manifest.json`；单独指定清单时也必须设置对应的 `KERNEL_OUT`。下载缓存可以保留，使用时仍会
 校验固定哈希。
 
 ## 运行服务与 Debian
@@ -39,7 +45,7 @@ ABI 检查结果。即使 release 字符串相同，也不要混用其他构建�
 ```sh
 make -C bsp/lx2160-x200 manual-rate runtime CONFIG="$PWD/config.local.json"
 make -C bsp/lx2160-x200 bootstrap
-make -C bsp/lx2160-x200 rootfs AUTHORIZED_KEY="$HOME/.ssh/id_ed25519.pub" OPERATOR=operator
+make -C bsp/lx2160-x200 rootfs AUTHORIZED_KEY="$HOME/.ssh/id_ed25519.pub" OPERATOR=x200
 make -C bsp/lx2160-x200 sata
 ```
 

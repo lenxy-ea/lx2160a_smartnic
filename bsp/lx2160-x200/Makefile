@@ -13,7 +13,7 @@ MANUAL_RATE_OUT ?= $(REPO_ROOT)/build/manual-rate
 OS_OUT ?= $(REPO_ROOT)/build/os
 CONFIG ?=
 AUTHORIZED_KEY ?=
-OPERATOR ?= operator
+OPERATOR ?= x200
 
 .PHONY: help check test toolchain fetch firmware kernel manual-rate runtime bootstrap rootfs sata
 

@@ -1,7 +1,13 @@
 # Build
 
 Use a Linux x86-64 host with Git, GNU Make, Python 3 (3.12 recommended), a C
-compiler for source tests, Podman, and `kmod` tools (`modinfo`, `modprobe`).
+compiler and OpenSSL development headers/library for source tests, `patch`,
+`binutils` (`readelf`), Podman, and `kmod` tools (`modinfo`, `modprobe`).
+Run the complete image pipeline from a root shell with a root-owned checkout
+and rootful Podman. Debian ARM64 package setup requires writable, mounted
+`/proc/sys/fs/binfmt_misc`. The builder registers a temporary, uniquely named
+QEMU handler and removes only that handler when the operation finishes. Other
+host handlers are not changed. The container does not need privileged mode.
 Allow at least 80 GiB free disk space for source trees, kernel modules, rootfs
 and the 32,017,047,552-byte sparse SATA image. Start with four compiler jobs
 on a host with 16 GiB RAM; CPU count alone is not a suitable job limit.
@@ -30,8 +36,9 @@ D11 and D12 images and an input/output manifest. The kernel producer writes
 Do not interchange modules from another build with the same release string.
 
 Output directories must be new. For another build select a new `FIRMWARE_OUT`
-or `KERNEL_OUT`; subsequent packaging uses `KERNEL_MANIFEST` to identify the
-chosen kernel. Download caches can be retained because their content is
+or `KERNEL_OUT`; keep that same `KERNEL_OUT` for subsequent packaging.
+`KERNEL_MANIFEST` defaults to its `manifest.json`; if overriding the manifest,
+also set `KERNEL_OUT` to the matching kernel build directory. Download caches can be retained because their content is
 verified against pinned hashes.
 
 ## Runtime and Debian
@@ -45,7 +52,7 @@ account. No password or private key is embedded in source.
 ```sh
 make -C bsp/lx2160-x200 manual-rate runtime CONFIG="$PWD/config.local.json"
 make -C bsp/lx2160-x200 bootstrap
-make -C bsp/lx2160-x200 rootfs AUTHORIZED_KEY="$HOME/.ssh/id_ed25519.pub" OPERATOR=operator
+make -C bsp/lx2160-x200 rootfs AUTHORIZED_KEY="$HOME/.ssh/id_ed25519.pub" OPERATOR=x200
 make -C bsp/lx2160-x200 sata
 ```
 
